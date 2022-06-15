@@ -35,6 +35,7 @@ from .utils import store_path_to_spark
 
 
 class TargetTypes:
+    mongodb = "mongodb"
     csv = "csv"
     parquet = "parquet"
     nosql = "nosql"
@@ -53,6 +54,7 @@ class TargetTypes:
             TargetTypes.stream,
             TargetTypes.dataframe,
             TargetTypes.custom,
+            TargetTypes.mongodb,
         ]
 
 
@@ -1295,6 +1297,152 @@ class DFTarget(BaseStoreTarget):
         return self._df
 
 
+class MongoDBTarget(BaseStoreTarget):
+    kind = TargetTypes.mongodb
+    is_offline = True
+    support_spark = False
+    support_storey = True
+
+    def __init__(
+        self,
+        name: str = "",
+        path=None,
+        attributes: typing.Dict[str, str] = None,
+        after_step=None,
+        columns=None,
+        partitioned: bool = False,
+        key_bucketing_number: typing.Optional[int] = None,
+        partition_cols: typing.Optional[typing.List[str]] = None,
+        time_partitioning_granularity: typing.Optional[str] = None,
+        after_state=None,
+        max_events: typing.Optional[int] = None,
+        flush_after_seconds: typing.Optional[int] = None,
+        storage_options: typing.Dict[str, str] = None,
+        db_name: str = None,
+        connection_string: str = None,
+        collection_name: str = None,
+        create_collection: bool = False,
+    ):
+
+        super().__init__(
+            name,
+            path,
+            attributes,
+            after_step,
+            columns,
+            partitioned,
+            key_bucketing_number,
+            partition_cols,
+            time_partitioning_granularity,
+            max_events=max_events,
+            flush_after_seconds=flush_after_seconds,
+            storage_options=storage_options,
+            after_state=after_state,
+        )
+
+        if not all([db_name, collection_name, connection_string]):
+            return
+
+        from pymongo import MongoClient
+
+        mongodb_client = MongoClient(connection_string)
+        all_dbs = mongodb_client.list_database_names()
+        if db_name not in all_dbs:
+            if create_collection:
+                pass
+            else:
+                raise ValueError(f"DataBase named {db_name} is not exist")
+        my_db = mongodb_client[db_name]
+        all_collections = my_db.list_collection_names()
+        if collection_name not in all_collections:
+            if create_collection:
+                my_collection = my_db[collection_name]
+                my_collection.insert_one({"test": "test"})
+                my_collection.delete_one({"test": "test"})
+            else:
+                raise ValueError(
+                    f"Collection named {collection_name} is not exist in {db_name} database"
+                )
+        self.attributes = {
+            "collection_name": collection_name,
+            "db_name": db_name,
+            "connection_string": connection_string,
+        }
+
+    def add_writer_state(
+        self, graph, after, features, key_columns=None, timestamp_key=None
+    ):
+        warnings.warn(
+            "This method is deprecated. Use add_writer_step instead",
+            # TODO: In 0.7.0 do changes in examples & demos In 0.9.0 remove
+            PendingDeprecationWarning,
+        )
+        """add storey writer state to graph"""
+        self.add_writer_step(graph, after, features, key_columns, timestamp_key)
+
+    def add_writer_step(
+        self,
+        graph,
+        after,
+        features,
+        key_columns=None,
+        timestamp_key=None,
+        featureset_status=None,
+    ):
+        key_columns = list(key_columns.keys())
+        column_list = self._get_column_list(
+            features=features, timestamp_key=timestamp_key, key_columns=key_columns
+        )
+
+        graph.add_step(
+            name=self.name or "MongoDBTarget",
+            after=after,
+            graph_shape="cylinder",
+            class_name="storey.MongoDBTarget",
+            columns=column_list,
+            header=True,
+            index_cols=key_columns,
+            storage_options=self._get_store().get_storage_options(),
+            **self.attributes,
+        )
+
+    def as_df(
+        self,
+        columns=None,
+        df_module=None,
+        entities=None,
+        start_time=None,
+        end_time=None,
+        time_column=None,
+        **kwargs,
+    ):
+        try:
+            query = kwargs["query"]
+        except:
+            query = {}
+        if time_column:
+            time_query = {time_column: {}}
+            if start_time:
+                time_query[time_column]["$gte"] = start_time
+            if end_time:
+                time_query[time_column]["$lt"] = end_time
+            if time_query[time_column] and query:
+                query.update(time_query)
+            elif time_query[time_column] and not query:
+                query = time_query
+
+        from pymongo import MongoClient
+
+        mongodb_client = MongoClient(self.attributes["connection_string"])
+        my_db = mongodb_client[self.attributes["db_name"]]
+        my_collection = my_db[self.attributes["collection_name"]]
+        my_collection = my_collection.find(query)
+
+        df = pd.DataFrame(list(my_collection))
+        df["_id"] = str(df["_id"])
+        return df
+
+
 kind_to_driver = {
     TargetTypes.parquet: ParquetTarget,
     TargetTypes.csv: CSVTarget,
@@ -1303,6 +1451,7 @@ kind_to_driver = {
     TargetTypes.stream: StreamTarget,
     TargetTypes.tsdb: TSDBTarget,
     TargetTypes.custom: CustomTarget,
+    TargetTypes.mongodb: MongoDBTarget,
 }
 
 
