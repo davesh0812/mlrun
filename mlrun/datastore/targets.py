@@ -31,16 +31,16 @@ from mlrun.utils.v3io_clients import get_frames_client
 from .. import errors
 from ..data_types import ValueType
 from ..platforms.iguazio import parse_v3io_path, split_path
-from .utils import parse_kafka_url, store_path_to_spark
+from .utils import store_path_to_spark
 
 
 class TargetTypes:
+    mongodb = "mongodb"
     csv = "csv"
     parquet = "parquet"
     nosql = "nosql"
     tsdb = "tsdb"
     stream = "stream"
-    kafka = "kafka"
     dataframe = "dataframe"
     custom = "custom"
 
@@ -52,9 +52,9 @@ class TargetTypes:
             TargetTypes.nosql,
             TargetTypes.tsdb,
             TargetTypes.stream,
-            TargetTypes.kafka,
             TargetTypes.dataframe,
             TargetTypes.custom,
+            TargetTypes.mongodb,
         ]
 
 
@@ -93,59 +93,6 @@ def get_default_prefix_for_target(kind):
 
 def get_default_prefix_for_source(kind):
     return get_default_prefix_for_target(kind)
-
-
-def validate_target_paths_for_engine(targets, engine, source):
-    """Validating that target paths are suitable for the required engine.
-    validate for single file targets only (parquet and csv).
-
-    spark:
-        cannot be a single file path (e.g - ends with .csv or .pq)
-
-    storey:
-        if csv - must be a single file.
-        if parquet - in case of partitioned it must be a directory,
-                     else can be both single file or directory
-
-    pandas:
-        if suorce contains chunksize attribute - path must be a directory
-        else - path must be a single file
-    """
-    for base_target in targets:
-        if (
-            base_target.kind == TargetTypes.parquet
-            or base_target.kind == TargetTypes.csv
-        ):
-            target = get_target_driver(base_target)
-            is_single_file = target.is_single_file()
-            if engine == "spark" and is_single_file:
-                raise mlrun.errors.MLRunInvalidArgumentError(
-                    f"spark CSV/Parquet targets must be directories, got path:'{target.path}'"
-                )
-            elif engine == "pandas":
-                if source.attributes.get("chunksize"):
-                    if is_single_file:
-                        raise mlrun.errors.MLRunInvalidArgumentError(
-                            "pandas CSV/Parquet targets must be a directory "
-                            f"for a chunked source, got path:'{target.path}'"
-                        )
-                elif not is_single_file:
-                    raise mlrun.errors.MLRunInvalidArgumentError(
-                        f"pandas CSV/Parquet targets must be a single file, got path:'{target.path}'"
-                    )
-            elif not engine or engine == "storey":
-                if target.kind == TargetTypes.csv and not is_single_file:
-                    raise mlrun.errors.MLRunInvalidArgumentError(
-                        f"CSV target for storey engine must be a single file, got path:'{target.path}'"
-                    )
-                elif (
-                    target.kind == TargetTypes.parquet
-                    and target.partitioned
-                    and is_single_file
-                ):
-                    raise mlrun.errors.MLRunInvalidArgumentError(
-                        f"partitioned Parquet target for storey engine must be a directory, got path:'{target.path}'"
-                    )
 
 
 def validate_target_list(targets):
@@ -1154,59 +1101,6 @@ class StreamTarget(BaseStoreTarget):
         raise NotImplementedError()
 
 
-class KafkaTarget(BaseStoreTarget):
-    kind = TargetTypes.kafka
-    is_table = False
-    is_online = False
-    support_spark = False
-    support_storey = True
-    support_append = True
-
-    def __init__(
-        self,
-        *args,
-        bootstrap_servers=None,
-        producer_options=None,
-        **kwargs,
-    ):
-        attrs = {
-            "bootstrap_servers": bootstrap_servers,
-            "producer_options": producer_options,
-        }
-        super().__init__(*args, attributes=attrs, **kwargs)
-
-    def add_writer_step(
-        self,
-        graph,
-        after,
-        features,
-        key_columns=None,
-        timestamp_key=None,
-        featureset_status=None,
-    ):
-        key_columns = list(key_columns.keys())
-        column_list = self._get_column_list(
-            features=features, timestamp_key=timestamp_key, key_columns=key_columns
-        )
-
-        bootstrap_servers = self.attributes.get("bootstrap_servers")
-        topic, bootstrap_servers = parse_kafka_url(self.path, bootstrap_servers)
-
-        graph.add_step(
-            name=self.name or "KafkaTarget",
-            after=after,
-            graph_shape="cylinder",
-            class_name="storey.KafkaTarget",
-            columns=column_list,
-            topic=topic,
-            bootstrap_servers=bootstrap_servers,
-            producer_options=self.attributes.get("producer_options"),
-        )
-
-    def as_df(self, columns=None, df_module=None, **kwargs):
-        raise NotImplementedError()
-
-
 class TSDBTarget(BaseStoreTarget):
     kind = TargetTypes.tsdb
     is_table = False
@@ -1347,12 +1241,11 @@ class CustomTarget(BaseStoreTarget):
 
 
 class DFTarget(BaseStoreTarget):
-    kind = TargetTypes.dataframe
     support_storey = True
 
-    def __init__(self, *args, name="dataframe", **kwargs):
+    def __init__(self):
+        self.name = "dataframe"
         self._df = None
-        super().__init__(*args, name=name, **kwargs)
 
     def set_df(self, df):
         self._df = df
@@ -1404,15 +1297,161 @@ class DFTarget(BaseStoreTarget):
         return self._df
 
 
+class MongoDBTarget(BaseStoreTarget):
+    kind = TargetTypes.mongodb
+    is_offline = True
+    support_spark = False
+    support_storey = True
+
+    def __init__(
+        self,
+        name: str = "",
+        path=None,
+        attributes: typing.Dict[str, str] = None,
+        after_step=None,
+        columns=None,
+        partitioned: bool = False,
+        key_bucketing_number: typing.Optional[int] = None,
+        partition_cols: typing.Optional[typing.List[str]] = None,
+        time_partitioning_granularity: typing.Optional[str] = None,
+        after_state=None,
+        max_events: typing.Optional[int] = None,
+        flush_after_seconds: typing.Optional[int] = None,
+        storage_options: typing.Dict[str, str] = None,
+        db_name: str = None,
+        connection_string: str = None,
+        collection_name: str = None,
+        create_collection: bool = False,
+    ):
+
+        super().__init__(
+            name,
+            path,
+            attributes,
+            after_step,
+            columns,
+            partitioned,
+            key_bucketing_number,
+            partition_cols,
+            time_partitioning_granularity,
+            max_events=max_events,
+            flush_after_seconds=flush_after_seconds,
+            storage_options=storage_options,
+            after_state=after_state,
+        )
+
+        if not all([db_name, collection_name, connection_string]):
+            return
+
+        from pymongo import MongoClient
+
+        mongodb_client = MongoClient(connection_string)
+        all_dbs = mongodb_client.list_database_names()
+        if db_name not in all_dbs:
+            if create_collection:
+                pass
+            else:
+                raise ValueError(f"DataBase named {db_name} is not exist")
+        my_db = mongodb_client[db_name]
+        all_collections = my_db.list_collection_names()
+        if collection_name not in all_collections:
+            if create_collection:
+                my_collection = my_db[collection_name]
+                my_collection.insert_one({"test": "test"})
+                my_collection.delete_one({"test": "test"})
+            else:
+                raise ValueError(
+                    f"Collection named {collection_name} is not exist in {db_name} database"
+                )
+        self.attributes = {
+            "collection_name": collection_name,
+            "db_name": db_name,
+            "connection_string": connection_string,
+        }
+
+    def add_writer_state(
+        self, graph, after, features, key_columns=None, timestamp_key=None
+    ):
+        warnings.warn(
+            "This method is deprecated. Use add_writer_step instead",
+            # TODO: In 0.7.0 do changes in examples & demos In 0.9.0 remove
+            PendingDeprecationWarning,
+        )
+        """add storey writer state to graph"""
+        self.add_writer_step(graph, after, features, key_columns, timestamp_key)
+
+    def add_writer_step(
+        self,
+        graph,
+        after,
+        features,
+        key_columns=None,
+        timestamp_key=None,
+        featureset_status=None,
+    ):
+        key_columns = list(key_columns.keys())
+        column_list = self._get_column_list(
+            features=features, timestamp_key=timestamp_key, key_columns=key_columns
+        )
+
+        graph.add_step(
+            name=self.name or "MongoDBTarget",
+            after=after,
+            graph_shape="cylinder",
+            class_name="storey.MongoDBTarget",
+            columns=column_list,
+            header=True,
+            index_cols=key_columns,
+            storage_options=self._get_store().get_storage_options(),
+            **self.attributes,
+        )
+
+    def as_df(
+        self,
+        columns=None,
+        df_module=None,
+        entities=None,
+        start_time=None,
+        end_time=None,
+        time_column=None,
+        **kwargs,
+    ):
+        try:
+            query = kwargs["query"]
+        except:
+            query = {}
+        if time_column:
+            time_query = {time_column: {}}
+            if start_time:
+                time_query[time_column]["$gte"] = start_time
+            if end_time:
+                time_query[time_column]["$lt"] = end_time
+            if time_query[time_column] and query:
+                query.update(time_query)
+            elif time_query[time_column] and not query:
+                query = time_query
+
+        from pymongo import MongoClient
+
+        mongodb_client = MongoClient(self.attributes["connection_string"])
+        my_db = mongodb_client[self.attributes["db_name"]]
+        my_collection = my_db[self.attributes["collection_name"]]
+        my_collection = my_collection.find(query)
+
+        df = pd.DataFrame(list(my_collection))
+        df["_id"] = str(df["_id"])
+        return df
+
+
 kind_to_driver = {
     TargetTypes.parquet: ParquetTarget,
     TargetTypes.csv: CSVTarget,
     TargetTypes.nosql: NoSqlTarget,
     TargetTypes.dataframe: DFTarget,
     TargetTypes.stream: StreamTarget,
-    TargetTypes.kafka: KafkaTarget,
     TargetTypes.tsdb: TSDBTarget,
     TargetTypes.custom: CustomTarget,
+    TargetTypes.mongodb: MongoDBTarget,
 }
 
 
