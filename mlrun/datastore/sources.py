@@ -50,6 +50,31 @@ def get_source_step(source, key_fields=None, time_field=None, context=None):
     return source.to_step(key_fields, time_field, context)
 
 
+class _SqlDBIterator:
+    def __init__(self, collection, iter_chunksize, iter_query=None):
+        """
+        Iterate over given collection
+
+        :param query: ???
+        :param chunksize: number of rows per chunk
+        :param collection: sql collection
+        """
+        self.collection = collection
+        self.iter_chunksize = iter_chunksize
+        self.iter_query = iter_query
+        self.keys = self.collection.keys()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        chunk = self.collection.fetchmany(self.iter_chunksize)
+        if len(chunk) != 0:
+            return pd.DataFrame(chunk, columns=self.keys)
+        else:
+            raise StopIteration
+
+
 class BaseSourceDriver(DataSource):
     support_spark = False
     support_storey = False
@@ -870,18 +895,19 @@ class SqlDBSource(BaseSourceDriver):
         collection_name: str = None,
         spark_options: dict = None,
     ):
-        key = "SQL_DB_PATH_STRING"
-        db_path = db_path or os.getenv(key)
+        _SQL_DB_PATH_STRING_ENV_VAR = "SQL_DB_PATH_STRING"
+        db_path = db_path or os.getenv(_SQL_DB_PATH_STRING_ENV_VAR)
         if db_path is None:
             raise mlrun.errors.MLRunInvalidArgumentError(
-                f"cannot specify without db_path arg or secret {key}"
+                f"cannot specify without db_path arg or secret {_SQL_DB_PATH_STRING_ENV_VAR}"
             )
         attrs = {
             "query": query,
             "max_results": max_results_for_table,
             "chunksize": chunksize,
             "spark_options": spark_options,
-            "collection_name": collection_name
+            "collection_name": collection_name,
+            "db_path": db_path
         }
         attrs = {key: value for key, value in attrs.items() if value is not None}
         super().__init__(
@@ -897,20 +923,22 @@ class SqlDBSource(BaseSourceDriver):
     def to_dataframe(self):
         import sqlalchemy as db
         query = self.attributes.get("query")
-        db_name = self.attributes.get("db_name")
+        db_path = self.attributes.get("db_path")
         collection_name = self.attributes.get("collection_name")
         chunksize = self.attributes.get("chunksize")
-        if collection_name and db_name:
-            engine = db.create_engine(db_name)
+        if collection_name and db_path:
+            engine = db.create_engine(db_path)
             metadata = db.MetaData()
             connection = engine.connect()
+            collection = db.Table(collection_name, metadata, autoload=True, autoload_with=engine)
+            results = connection.execute(db.select([collection]))
             if chunksize:
-                pass
+                return _SqlDBIterator(collection=results, iter_chunksize=chunksize, iter_query=query)
             else:
-                collection = db.Table(collection_name, metadata, autoload=True, autoload_with=engine)
-                results = connection.execute(db.select([collection])).fetchall()
+                results = results.fetchall()
                 df = pd.DataFrame(results)
                 df.columns = results[0].keys()
+                connection.close()
                 return df
         else:
             raise mlrun.errors.MLRunInvalidArgumentError(
@@ -918,21 +946,22 @@ class SqlDBSource(BaseSourceDriver):
             )
 
     def to_step(self, key_field=None, time_field=None, context=None):
-        import storey
-
-        attributes = self.attributes or {}
-        if context:
-            attributes["context"] = context
-
-        return storey.sources.MongoDBSource(
-            key_field=self.key_field or key_field,
-            time_field=self.time_field or time_field,
-            storage_options=self._get_store().get_storage_options(),
-            end_filter=self.end_time,
-            start_filter=self.start_time,
-            filter_column=self.time_field or time_field,
-            **attributes,
-        )
+        # import storey
+        #
+        # attributes = self.attributes or {}
+        # if context:
+        #     attributes["context"] = context
+        #
+        # return storey.sources.MongoDBSource(
+        #     key_field=self.key_field or key_field,
+        #     time_field=self.time_field or time_field,
+        #     storage_options=self._get_store().get_storage_options(),
+        #     end_filter=self.end_time,
+        #     start_filter=self.start_time,
+        #     filter_column=self.time_field or time_field,
+        #     **attributes,
+        # )
+        pass
 
     def is_iterator(self):
         return True if self.attributes.get("chunksize") else False
