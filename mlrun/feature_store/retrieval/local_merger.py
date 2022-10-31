@@ -72,11 +72,13 @@ class LocalFeatureMerger(BaseMerger):
             )
         # filter joined data frame by the query param
         if query:
+            print('innnnn')
             self._result_df.query(query, inplace=True)
 
         if self._drop_indexes:
             self._result_df.reset_index(drop=True, inplace=True)
         self._write_to_target()
+        print(111111)
 
         # check if need to set indices
         self._result_df = self._set_indexes(self._result_df)
