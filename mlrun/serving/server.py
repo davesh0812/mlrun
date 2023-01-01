@@ -218,8 +218,6 @@ class GraphServer(ModelObj):
             raise MLRunInvalidArgumentError(
                 "no models or steps were set, use function.set_topology() and add steps"
             )
-        if not method:
-            method = "POST" if body else "GET"
         event = MockEvent(
             body=body,
             path=path,
