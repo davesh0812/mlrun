@@ -113,7 +113,7 @@ class SparkFeatureMerger(BaseMerger):
             #     if entity not in column_names:
             #         columns.append((entity, None))
 
-            df.reset_index(inplace=True)
+            # df.reset_index(inplace=True)
             column_names += node.data["save_index"]
             node.data["save_cols"] += node.data["save_index"]
             # select requested columns and rename with alias where needed
@@ -171,10 +171,10 @@ class SparkFeatureMerger(BaseMerger):
                 subset=[self.vector.status.label_column]
             )
 
-        if self._drop_indexes:
-            self._result_df.reset_index(drop=True, inplace=True)
-        else:
-            self._set_indexes(self._result_df)
+        # if self._drop_indexes:
+        #     self._result_df.reset_index(drop=True, inplace=True)
+        # else:
+        #     self._set_indexes(self._result_df)
 
         self._write_to_target()
         return OfflineVectorResponse(self)
