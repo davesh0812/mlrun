@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import re
+
 import mlrun
 from mlrun.datastore.targets import get_offline_target
 
@@ -291,8 +293,17 @@ class SparkFeatureMerger(BaseMerger):
                 be prefixed with featureset_df name.
 
         """
-        indexes = list(featureset.spec.entities.keys())
-        merged_df = entity_df.join(featureset_df, on=indexes)
+        fs_name = featureset.metadata.name
+        merged_df = entity_df.join(
+            featureset_df,
+            how=self._join_type,
+            left_on=left_keys,
+            right_on=right_keys,
+            suffixes=("", f"_{fs_name}_"),
+        )
+        for column in merged_df.columns:
+            if re.findall(f"_{fs_name}_$", column):
+                self._append_drop_column(column)
         return merged_df
 
     def get_df(self, to_pandas=True):
