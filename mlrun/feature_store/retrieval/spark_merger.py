@@ -134,13 +134,13 @@ class SparkFeatureMerger(BaseMerger):
 
             # update alias according to the unique column name
             new_columns = []
-            for col, alias in columns:
-                if col in rename_col_dict and alias:
-                    new_columns.append((rename_col_dict[col], alias))
-                elif col in rename_col_dict and not alias:
-                    new_columns.append((rename_col_dict[col], col))
+            for column, alias in columns:
+                if column in rename_col_dict and alias:
+                    new_columns.append((rename_col_dict[column], alias))
+                elif column in rename_col_dict and not alias:
+                    new_columns.append((rename_col_dict[column], column))
                 else:
-                    new_columns.append((col, alias))
+                    new_columns.append((column, alias))
             all_columns.append(new_columns)
             self._update_alias(
                 dictionary={name: alias for name, alias in new_columns if alias}
