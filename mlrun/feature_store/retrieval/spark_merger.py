@@ -117,7 +117,7 @@ class SparkFeatureMerger(BaseMerger):
 
             # df.reset_index(inplace=True)
             column_names += node.data["save_index"] + node.data["right_keys"]
-            node.data["save_cols"] += node.data["save_index"]
+            node.data["save_cols"] += node.data["save_index"] + node.data["right_keys"]
             # rename columns to be unique for each feature set
             rename_col_dict = {
                 column: f"{column}_{name}"
