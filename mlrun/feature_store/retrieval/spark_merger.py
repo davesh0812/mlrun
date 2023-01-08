@@ -118,9 +118,9 @@ class SparkFeatureMerger(BaseMerger):
             node.data["save_cols"] += node.data["save_index"]
             # rename columns to be unique for each feature set
             rename_col_dict = {
-                col: f"{col}_{name}"
-                for col in column_names
-                if col not in node.data["save_cols"]
+                column: f"{col}_{name}"
+                for column in column_names
+                if column not in node.data["save_cols"]
             }
             # select requested columns and rename with alias where needed
             df = df.select(
