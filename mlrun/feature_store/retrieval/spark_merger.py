@@ -116,19 +116,14 @@ class SparkFeatureMerger(BaseMerger):
             # df.reset_index(inplace=True)
             column_names += node.data["save_index"]
             node.data["save_cols"] += node.data["save_index"]
-            # select requested columns and rename with alias where needed
-            df = df.select([col(name) for name in column_names])
             # rename columns to be unique for each feature set
             rename_col_dict = {
                 col: f"{col}_{name}"
                 for col in column_names
                 if col not in node.data["save_cols"]
             }
-            df.rename(
-                columns=rename_col_dict,
-                inplace=True,
-            )
-
+            # select requested columns and rename with alias where needed
+            df = df.select([col(name).alias(rename_col_dict.get(name, None) or name) for name in column_names])
             dfs.append(df)
             keys.append([node.data["left_keys"], node.data["right_keys"]])
 
@@ -160,11 +155,14 @@ class SparkFeatureMerger(BaseMerger):
             keys=keys,
             all_columns=all_columns,
         )
+
+        self._result_df = self._result_df.drop(*self._drop_columns)
+        # renaming all columns according to self._alias
+        self._result_df = self._result_df.select([col(name).alias(self._alias.get(name, None) or name)
+                                     for name in self._result_df.columns])
         # filter joined data frame by the query param
         if query:
             self._result_df = self._result_df.filter(query)
-
-        self._result_df = self._result_df.drop(*self._drop_columns)
 
         if self.vector.status.label_column:
             self._result_df = self._result_df.dropna(
