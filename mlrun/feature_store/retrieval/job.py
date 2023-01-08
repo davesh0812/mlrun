@@ -147,7 +147,7 @@ def merge_handler(context, vector_uri, target, entity_rows=None,
     context.logger.info(f"starting vector merge task to {vector.uri} 111")
     merger = mlrun.feature_store.retrieval.{{{engine}}}(vector, **(engine_args or {}))
     merger.start(entity_rows, entity_timestamp_column, store_target, drop_columns, with_indexes=with_indexes, 
-                 query=query, join_type=join_type)
+                 query=query)
 
     target = vector.status.targets[store_target.name].to_dict()
     context.log_result('feature_vector', vector.uri)
