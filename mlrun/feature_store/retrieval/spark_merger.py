@@ -108,7 +108,6 @@ class SparkFeatureMerger(BaseMerger):
             df = source.to_spark_df(
                 self.spark, named_view=self.named_view, time_field=timestamp_key
             )
-            df.show()
 
             # if timestamp_key and timestamp_key not in column_names:
             #     columns.append((timestamp_key, None))
@@ -125,11 +124,15 @@ class SparkFeatureMerger(BaseMerger):
                 for column in column_names
                 if column not in node.data["save_cols"]
             }
+            print(node.data)
+            print(column_names)
+            print(columns)
+            df.show()
             # select requested columns and rename with alias where needed
             df = df.select(
                 [
                     col(name).alias(rename_col_dict.get(name, None) or name)
-                    for name in column_names
+                    for name, _ in columns
                 ]
             )
             dfs.append(df)
