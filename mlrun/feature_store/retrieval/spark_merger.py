@@ -116,7 +116,7 @@ class SparkFeatureMerger(BaseMerger):
             #         columns.append((entity, None))
 
             # df.reset_index(inplace=True)
-            column_names += node.data["save_index"]
+            column_names += node.data["save_index"] + node.data["right_index"]
             node.data["save_cols"] += node.data["save_index"]
             # rename columns to be unique for each feature set
             rename_col_dict = {
@@ -132,9 +132,10 @@ class SparkFeatureMerger(BaseMerger):
             df = df.select(
                 [
                     col(name).alias(rename_col_dict.get(name, None) or name)
-                    for name, _ in columns
+                    for name in column_names
                 ]
             )
+            df.show()
             dfs.append(df)
             keys.append([node.data["left_keys"], node.data["right_keys"]])
 
@@ -145,8 +146,10 @@ class SparkFeatureMerger(BaseMerger):
                     new_columns.append((rename_col_dict[column], alias))
                 elif column in rename_col_dict and not alias:
                     new_columns.append((rename_col_dict[column], column))
-                else:
+                elif alias:
                     new_columns.append((column, alias))
+                else:
+                    new_columns.append((column, column))
             all_columns.append(new_columns)
             self._update_alias(
                 dictionary={name: alias for name, alias in new_columns if alias}
@@ -170,8 +173,9 @@ class SparkFeatureMerger(BaseMerger):
         # renaming all columns according to self._alias
         self._result_df = self._result_df.select(
             [
-                col(name).alias(self._alias.get(name, None) or name)
+                col(name).alias(self._alias.get(name))
                 for name in self._result_df.columns
+                if name in self._alias
             ]
         )
         # filter joined data frame by the query param
