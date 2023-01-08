@@ -297,8 +297,8 @@ class SparkFeatureMerger(BaseMerger):
         featureset_df = featureset_df.selectExpr(
             [
                 f"{column} AS {column}_{fs_name}_"
+                if column in entity_df.columns else column
                 for column in featureset_df.columns
-                if column in entity_df.columns
             ]
         )
         print("entity_df")
