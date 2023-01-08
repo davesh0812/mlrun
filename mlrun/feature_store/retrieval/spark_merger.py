@@ -296,14 +296,19 @@ class SparkFeatureMerger(BaseMerger):
         fs_name = featureset.metadata.name
         featureset_df = featureset_df.selectExpr(
             [
-                f"{column} as {column}_{fs_name}_"
+                f"{column} AS {column}_{fs_name}_"
                 for column in featureset_df.columns
                 if column in entity_df.columns
             ]
         )
+        print("entity_df")
+        print(entity_df.columns)
+        print("featureset_df")
+        print(featureset_df.columns)
+
         join_expr = entity_df[left_keys[0]] == featureset_df[right_keys[0]]
         for l, r in zip(left_keys[:1], right_keys[1:]):
-            join_expr = join_expr | (entity_df[l] == featureset_df[r])
+            join_expr = join_expr & (entity_df[l] == featureset_df[r])
         merged_df = entity_df.join(
             featureset_df,
             join_expr,
