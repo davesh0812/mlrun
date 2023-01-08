@@ -68,9 +68,9 @@ class SparkFeatureMerger(BaseMerger):
             columns = feature_set_fields[name]
             column_names = [name for name, alias in columns]
 
-            for col in node.data["save_cols"]:
-                if col not in column_names:
-                    self._append_drop_column(col)
+            for column in node.data["save_cols"]:
+                if column not in column_names:
+                    self._append_drop_column(column)
             column_names += node.data["save_cols"]
 
             target = get_offline_target(feature_set)
@@ -118,7 +118,7 @@ class SparkFeatureMerger(BaseMerger):
             node.data["save_cols"] += node.data["save_index"]
             # rename columns to be unique for each feature set
             rename_col_dict = {
-                column: f"{col}_{name}"
+                column: f"{column}_{name}"
                 for column in column_names
                 if column not in node.data["save_cols"]
             }
