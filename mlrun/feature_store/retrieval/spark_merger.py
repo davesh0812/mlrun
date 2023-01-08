@@ -123,7 +123,12 @@ class SparkFeatureMerger(BaseMerger):
                 if col not in node.data["save_cols"]
             }
             # select requested columns and rename with alias where needed
-            df = df.select([col(name).alias(rename_col_dict.get(name, None) or name) for name in column_names])
+            df = df.select(
+                [
+                    col(name).alias(rename_col_dict.get(name, None) or name)
+                    for name in column_names
+                ]
+            )
             dfs.append(df)
             keys.append([node.data["left_keys"], node.data["right_keys"]])
 
@@ -141,7 +146,6 @@ class SparkFeatureMerger(BaseMerger):
                 dictionary={name: alias for name, alias in new_columns if alias}
             )
 
-
         # convert pandas entity_rows to spark DF if needed
         if entity_rows is not None and not hasattr(entity_rows, "rdd"):
             entity_rows = self.spark.createDataFrame(entity_rows)
@@ -157,9 +161,14 @@ class SparkFeatureMerger(BaseMerger):
         )
 
         self._result_df = self._result_df.drop(*self._drop_columns)
+        print(self._result_df.columns)
         # renaming all columns according to self._alias
-        self._result_df = self._result_df.select([col(name).alias(self._alias.get(name, None) or name)
-                                     for name in self._result_df.columns])
+        self._result_df = self._result_df.select(
+            [
+                col(name).alias(self._alias.get(name, None) or name)
+                for name in self._result_df.columns
+            ]
+        )
         # filter joined data frame by the query param
         if query:
             self._result_df = self._result_df.filter(query)
