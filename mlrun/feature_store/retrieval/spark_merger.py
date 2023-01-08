@@ -161,7 +161,6 @@ class SparkFeatureMerger(BaseMerger):
         )
 
         self._result_df = self._result_df.drop(*self._drop_columns)
-        print(self._result_df.columns)
         # renaming all columns according to self._alias
         self._result_df = self._result_df.select(
             [
