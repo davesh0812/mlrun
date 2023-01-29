@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+#
 from typing import Any, Dict, List
 
 import numpy as np
@@ -31,9 +31,9 @@ class HuggingFaceModelServer(V2ModelServer):
 
     def __init__(
         self,
-        context: mlrun.MLClientCtx = None,
-        name: str = None,
-        task: str = None,
+        context: mlrun.MLClientCtx,
+        name: str,
+        task: str,
         model_path: str = None,
         model_name: str = None,
         model_class: str = None,
@@ -44,9 +44,8 @@ class HuggingFaceModelServer(V2ModelServer):
     ):
         """
         Initialize a serving class for a Hugging face model.
-        :param context:         For internal use (passed in init).
+        :param context:         The mlrun context to work with
         :param name:            The name of this server to be initialized
-        :param task:            The task defining which pipeline will be returned.
         :param model_path:      Not in use. When adding a model pass any string value
         :param model_name:      The model's name in the Hugging Face hub
                                 e.g., `nlptown/bert-base-multilingual-uncased-sentiment`
@@ -110,22 +109,21 @@ class HuggingFaceModelServer(V2ModelServer):
         :param request: The request to the model. The input to the model will be read from the "inputs" key.
         :return: The model's prediction on the given input.
         """
-        # Get the inputs:
-        inputs = request["inputs"]
+        if self.pipe is None:
+            raise ValueError("Please use `.load()`")
 
-        # Applying prediction according the inputs shape:
-        result = (
-            [self.pipe(**_input) for _input in inputs]
-            if isinstance(inputs[0], dict)
-            else self.pipe(inputs)
-        )
+        # Predicting:
+        if isinstance(request["inputs"][0], dict):
+            result = [self.pipe(**_input) for _input in request["inputs"]]
+        else:
+            result = self.pipe(request["inputs"])
 
-        # Arranging the result into a List[Dict]
-        # (This is necessary because the result may vary from one model to another)
+        # replace list of lists of dicts into a list of dicts:
+        # The result may vary from one model to another.
         if all(isinstance(res, list) for res in result):
             result = [res[0] for res in result]
 
-        # Converting JSON non-serializable numpy objects to native types:
+        # Converting JSON non-serializable objects to native types:
         for res in result:
             for key, val in res.items():
                 if isinstance(val, np.generic):
