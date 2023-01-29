@@ -20,8 +20,9 @@ import transformers
 
 import mlrun
 
-from .callbacks import MLRunCallback
-from .mlrun_interfaces import HFORTOptimizerMLRunInterface, HFTrainerMLRunInterface
+from .callbacks.mlrun_callback import MLRunCallback
+from .mlrun_interfaces.trainer_mlrun_interface import HFTrainerMLRunInterface
+from .mlrun_interfaces.ort_optimizer_mlrun_interface import HFORTOptimizerMLRunInterface
 from .model_server import HuggingFaceModelServer
 
 
