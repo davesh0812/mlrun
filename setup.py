@@ -184,6 +184,8 @@ setup(
         "mlrun.frameworks._ml_common.plans",
         "mlrun.frameworks.auto_mlrun",
         "mlrun.frameworks.huggingface",
+        "mlrun.frameworks.huggingface.callbacks",
+        "mlrun.frameworks.huggingface.mlrun_interfaces",
         "mlrun.frameworks.lgbm",
         "mlrun.frameworks.lgbm.callbacks",
         "mlrun.frameworks.lgbm.mlrun_interfaces",
