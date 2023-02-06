@@ -1058,6 +1058,7 @@ class TestFeatureStoreSparkEngine(TestMLRunSystem):
                 mapping={
                     "bad": {"ranges": {"one": [0, 30], "two": [30, "inf"]}},
                     "hr_is_error": {False: "0", True: "1"},
+                    "room": {1: 3},
                 },
                 with_original_features=with_original_features,
             )
@@ -1083,6 +1084,7 @@ class TestFeatureStoreSparkEngine(TestMLRunSystem):
                 mapping={
                     "bad": {"ranges": {"one": [0, 30], "two": [30, "inf"]}},
                     "hr_is_error": {False: "0", True: "1"},
+                    "room": {1: 3},
                 },
                 with_original_features=with_original_features,
             )

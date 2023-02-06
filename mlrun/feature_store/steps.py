@@ -226,14 +226,15 @@ class MapValues(StepToDict, MLRunStep):
     def _do_spark(self, event):
         from itertools import chain
 
-        from pyspark.sql.functions import col, create_map, lit, when
+        from pyspark.sql.functions import coalesce, col, create_map, lit, when
 
         for column, column_map in self.mapping.items():
             new_column_name = self._get_feature_name(column)
             if "ranges" not in column_map:
                 mapping_expr = create_map([lit(x) for x in chain(*column_map.items())])
                 event = event.withColumn(
-                    new_column_name, mapping_expr.getItem(col(column))
+                    new_column_name,
+                    coalesce(mapping_expr.getItem(col(column)), col(column)),
                 )
             else:
                 for val, val_range in column_map["ranges"].items():
