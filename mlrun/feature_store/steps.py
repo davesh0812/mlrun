@@ -224,18 +224,17 @@ class MapValues(StepToDict, MLRunStep):
         return df
 
     def _do_spark(self, event):
-        from itertools import chain
-
-        from pyspark.sql.functions import coalesce, col, create_map, lit, when, udf
+        from pyspark.sql.functions import lit, when, udf
 
         for column, column_map in self.mapping.items():
-            new_column_name = self._get_feature_name(column)
+            new_column_name = f"map_{column}"
             if "ranges" not in column_map:
                 def translate(dictionary):
-                    return udf(lambda value: dictionary.get(value, value))
+                    return udf(lambda col: dictionary.get(col, col))
 
                 event = event.withColumn(
-                    new_column_name, translate(column_map)(column))
+                    new_column_name, translate(column_map)(column)
+                )
             else:
                 for val, val_range in column_map["ranges"].items():
                     min_val = val_range[0] if val_range[0] != "-inf" else -np.inf
