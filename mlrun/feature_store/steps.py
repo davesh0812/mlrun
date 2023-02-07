@@ -225,12 +225,13 @@ class MapValues(StepToDict, MLRunStep):
 
     def _do_spark(self, event):
         from pyspark.sql.functions import lit, when, udf
+        from pyspark.sql.types import DataType
 
         for column, column_map in self.mapping.items():
-            new_column_name = f"map_{column}"
+            new_column_name = self._get_feature_name(column)
             if "ranges" not in column_map:
                 def translate(dictionary):
-                    return udf(lambda col: dictionary.get(col, col))
+                    return udf(lambda col: dictionary.get(col, col), DataType)
 
                 event = event.withColumn(
                     new_column_name, translate(column_map)(column)
