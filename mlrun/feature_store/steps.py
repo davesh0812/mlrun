@@ -232,7 +232,7 @@ class MapValues(StepToDict, MLRunStep):
             new_column_name = self._get_feature_name(column)
             if "ranges" not in column_map:
                 def translate(dictionary):
-                    return udf(lambda col: dictionary.get(col, col))
+                    return udf(lambda value: dictionary.get(value, value))
 
                 event = event.withColumn(
                     new_column_name, translate(column_map)(column))
