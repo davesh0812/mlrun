@@ -725,7 +725,7 @@ class ParquetTarget(BaseStoreTarget):
         flush_after_seconds: Optional[int] = 900,
         storage_options: Dict[str, str] = None,
     ):
-
+        print(f"init path = {path}")
         self.path = path
         if partitioned is None:
             partitioned = not self.is_single_file()
@@ -867,6 +867,7 @@ class ParquetTarget(BaseStoreTarget):
                     partition_cols.append(unit)
                     if unit == time_partitioning_granularity:
                         break
+        print(self.get_target_path())
         result = {
             "path": store_path_to_spark(self.get_target_path()),
             "format": "parquet",

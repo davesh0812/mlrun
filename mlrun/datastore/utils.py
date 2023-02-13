@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 
 def store_path_to_spark(path):
+    print(path)
     if path.startswith("redis://") or path.startswith("rediss://"):
         url = urlparse(path)
         if url.path:
