@@ -407,7 +407,7 @@ def ingest(
         )
 
     # This flow may happen both on client side (user provides run config) and server side (through the ingest API)
-    if run_config and not run_config.local:
+    if run_config:
         if isinstance(source, pd.DataFrame):
             raise mlrun.errors.MLRunInvalidArgumentError(
                 "DataFrame source is illegal in conjunction with run_config"
@@ -853,9 +853,8 @@ def _ingest_with_spark(
         targets_to_ingest = copy.deepcopy(targets)
         featureset.update_targets_for_ingest(targets_to_ingest, overwrite=overwrite)
 
-        print(targets_to_ingest)
         for target in targets_to_ingest or []:
-            wrong_path =False
+            wrong_path = False
             if type(target) is DataTargetBase:
                 target = get_target_driver(target, featureset)
             elif not isinstance(target, DataTargetBase) and target.path is None:
