@@ -816,36 +816,36 @@ def _ingest_with_spark(
 ):
     created_spark_context = False
     try:
-        # import pyspark.sql
-        #
-        # if spark is None or spark is True:
-        #     # create spark context
-        #
-        #     if mlrun_context:
-        #         session_name = f"{mlrun_context.name}-{mlrun_context.uid}"
-        #     else:
-        #         session_name = (
-        #             f"{featureset.metadata.project}-{featureset.metadata.name}"
-        #         )
-        #
-        #     spark = pyspark.sql.SparkSession.builder.appName(session_name).getOrCreate()
-        #     created_spark_context = True
-        #
-        # timestamp_key = featureset.spec.timestamp_key
+        import pyspark.sql
 
-        # if isinstance(source, pd.DataFrame):
-        #     df = spark.createDataFrame(source)
-        # elif isinstance(source, pyspark.sql.DataFrame):
-        #     df = source
-        # else:
-        #     df = source.to_spark_df(spark, time_field=timestamp_key)
-        #     df = source.filter_df_start_end_time(df, timestamp_key)
-        # if featureset.spec.graph and featureset.spec.graph.steps:
-        #     df = run_spark_graph(df, featureset, namespace, spark)
-        #
-        # if isinstance(df, Response) and df.status_code != 0:
-        #     mlrun.errors.raise_for_status_code(df.status_code, df.body.split(": ")[1])
-        # _infer_from_static_df(df, featureset, options=infer_options)
+        if spark is None or spark is True:
+            # create spark context
+
+            if mlrun_context:
+                session_name = f"{mlrun_context.name}-{mlrun_context.uid}"
+            else:
+                session_name = (
+                    f"{featureset.metadata.project}-{featureset.metadata.name}"
+                )
+
+            spark = pyspark.sql.SparkSession.builder.appName(session_name).getOrCreate()
+            created_spark_context = True
+
+        timestamp_key = featureset.spec.timestamp_key
+
+        if isinstance(source, pd.DataFrame):
+            df = spark.createDataFrame(source)
+        elif isinstance(source, pyspark.sql.DataFrame):
+            df = source
+        else:
+            df = source.to_spark_df(spark, time_field=timestamp_key)
+            df = source.filter_df_start_end_time(df, timestamp_key)
+        if featureset.spec.graph and featureset.spec.graph.steps:
+            df = run_spark_graph(df, featureset, namespace, spark)
+
+        if isinstance(df, Response) and df.status_code != 0:
+            mlrun.errors.raise_for_status_code(df.status_code, df.body.split(": ")[1])
+        _infer_from_static_df(df, featureset, options=infer_options)
 
         key_columns = list(featureset.spec.entities.keys())
         targets = targets or featureset.spec.targets
