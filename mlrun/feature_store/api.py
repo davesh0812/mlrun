@@ -853,7 +853,9 @@ def _ingest_with_spark(
         targets_to_ingest = copy.deepcopy(targets)
         featureset.update_targets_for_ingest(targets_to_ingest, overwrite=overwrite)
 
+        print(targets_to_ingest)
         for target in targets_to_ingest or []:
+            print(target.path)
             if type(target) is DataTargetBase:
                 target = get_target_driver(target, featureset)
             if featureset.spec.passthrough and target.is_offline:
