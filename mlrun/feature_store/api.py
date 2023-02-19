@@ -861,7 +861,7 @@ def _ingest_with_spark(
             if featureset.spec.passthrough and target.is_offline:
                 continue
             if (target.path and urlparse(target.path).scheme == "") or (target.path is None and
-                                                                        not isinstance(target, BaseStoreTarget)):
+                                                                        not isinstance(target, DataTargetBase)):
                 if mlrun_context:
                     mlrun_context.logger.error(
                         "Paths for spark ingest must contain schema, i.e v3io, s3, az"
