@@ -754,6 +754,8 @@ class ParquetTarget(BaseStoreTarget):
                 f"{','.join(mlrun.utils.helpers.LEGAL_TIME_UNITS)}, "
                 f"not {time_partitioning_granularity}."
             )
+        print(f"in init : {self.get_target_path()}")
+        print(f"in init self.path= : {self.get_target_path()}")
 
     @staticmethod
     def _write_dataframe(df, storage_options, target_path, partition_cols, **kwargs):
@@ -866,6 +868,7 @@ class ParquetTarget(BaseStoreTarget):
                     partition_cols.append(unit)
                     if unit == time_partitioning_granularity:
                         break
+        print(f"in get_spark_options : {self.get_target_path()}")
         result = {
             "path": store_path_to_spark(self.get_target_path()),
             "format": "parquet",
