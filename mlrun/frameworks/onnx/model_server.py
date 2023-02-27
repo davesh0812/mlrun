@@ -147,16 +147,13 @@ class ONNXModelServer(V2ModelServer):
         inputs = request["inputs"]
 
         # Infer the inputs through the model:
-        res = self._inference_session.run(
+        return self._inference_session.run(
             output_names=self._output_layers,
             input_feed={
                 input_layer: data
                 for input_layer, data in zip(self._input_layers, inputs)
             },
         )
-
-        res["inputs"] = ""
-        return res
 
     def explain(self, request: Dict[str, Any]) -> str:
         """
