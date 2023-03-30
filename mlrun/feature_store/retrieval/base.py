@@ -180,10 +180,19 @@ class BaseMerger(abc.ABC):
         )  # the struct of key is [[[],[]], ..] So that each record indicates which way the corresponding
         # featureset is connected to the previous one, and within each record the left keys are indicated in index 0
         # and the right keys in index 1, this keys will be the keys that will be used in this join
+        join_types = []
+        # fs_link_list = self._create_linked_relation_list(
+        #     feature_set_objects, feature_set_fields
+        # )
 
-        fs_link_list = self._create_linked_relation_list(
-            feature_set_objects, feature_set_fields
-        )
+        if self.vector.join_spec_list:
+            fs_link_list = self._create_linked_relation_list_from_spec_relation(
+                feature_set_objects, feature_set_fields
+            )
+        else:
+            fs_link_list = self._create_linked_relation_list_from_entities(
+                feature_set_objects, feature_set_fields
+            )
 
         for node in fs_link_list:
             name = node.name
@@ -236,6 +245,7 @@ class BaseMerger(abc.ABC):
             del df
 
             keys.append([node.data["left_keys"], node.data["right_keys"]])
+            join_types.append(node.data["join_type"])
 
             # update alias according to the unique column name
             new_columns = []
@@ -263,6 +273,7 @@ class BaseMerger(abc.ABC):
             featuresets=feature_sets,
             featureset_dfs=dfs,
             keys=keys,
+            join_types=join_types,
         )
 
         all_columns = None
@@ -322,6 +333,7 @@ class BaseMerger(abc.ABC):
         featuresets: list,
         featureset_dfs: list,
         keys: list = None,
+        join_types: list = None,
     ):
         """join the entities and feature set features into a result dataframe"""
         merged_df = entity_df
@@ -336,16 +348,19 @@ class BaseMerger(abc.ABC):
             entity_timestamp_column = (
                 entity_timestamp_column or featureset.spec.timestamp_key
             )
+            join_types.pop(0)
         elif entity_df is not None and featureset_dfs:
             # when `entity_rows` passed to `get_offline_features`
             # keys[0] mention the way that `entity_rows`  joins to the first `featureset`
             # and it can join only by the entities of the first `featureset`
             keys[0][0] = keys[0][1] = list(featuresets[0].spec.entities.keys())
 
-        for featureset, featureset_df, lr_key in zip(featuresets, featureset_dfs, keys):
+        for featureset, featureset_df, lr_key, join_type in zip(
+            featuresets, featureset_dfs, keys, join_types
+        ):
             if featureset.spec.timestamp_key:
                 merge_func = self._asof_join
-                if self._join_type != "inner":
+                if join_type != "inner":
                     logger.warn(
                         "Merge all the features with as_of_join and don't "
                         "take into account the join_type that was given"
@@ -360,6 +375,7 @@ class BaseMerger(abc.ABC):
                 featureset_df,
                 lr_key[0],
                 lr_key[1],
+                join_type,
             )
 
             # unpersist as required by the implementation (e.g. spark) and delete references
@@ -378,6 +394,7 @@ class BaseMerger(abc.ABC):
         featureset_df,
         left_keys: list,
         right_keys: list,
+        join_type: str,
     ):
         raise NotImplementedError("_asof_join() operation not implemented in class")
 
@@ -390,6 +407,7 @@ class BaseMerger(abc.ABC):
         featureset_df,
         left_keys: list,
         right_keys: list,
+        join_type: str,
     ):
         raise NotImplementedError("_join() operation not implemented in class")
 
@@ -415,7 +433,7 @@ class BaseMerger(abc.ABC):
         return size
 
     class _Node:
-        def __init__(self, name: str, order: int, data=None):
+        def __init__(self, name: str, order: int = 0, data=None):
             self.name = name
             self.data = data
             # order of this feature_set in the original list
@@ -630,6 +648,126 @@ class BaseMerger(abc.ABC):
                 return return_relation
 
         raise mlrun.errors.MLRunRuntimeError("Failed to merge")
+
+    def _create_linked_relation_list_from_spec_relation(
+        self, feature_set_objects, feature_set_fields
+    ):
+        linked_list = None
+        for join_spec in self.vector.join_spec_list:
+            if linked_list is None:
+                left_node = BaseMerger._Node(
+                    name=join_spec.left_feature_set_name,
+                    data={
+                        "left_keys": [],
+                        "right_keys": [],
+                        "save_cols": [],
+                        "save_index": [],
+                        "join_type": None,
+                    },
+                )
+                linked_list = BaseMerger._LinkedList(head=left_node)
+            left_node = linked_list.find_node(join_spec.left_feature_set_name)
+            for i in range(len(join_spec.relations)):
+                if join_spec.relations[i]:
+                    left_keys = list(join_spec.relations[i].keys())
+                    right_keys = list(join_spec.relations[i].values())
+                elif sorted(
+                    list(
+                        feature_set_objects[
+                            join_spec.left_feature_set_name
+                        ].spec.entities.keys()
+                    )
+                ) == sorted(
+                    list(
+                        feature_set_objects[
+                            join_spec.right_feature_sets_name[i]
+                        ].spec.entities.keys()
+                    )
+                ):
+                    left_keys = right_keys = list(
+                        feature_set_objects[
+                            join_spec.right_feature_sets_name[i]
+                        ].spec.entities.keys()
+                    )
+                else:
+                    raise mlrun.errors.MLRunRuntimeError(
+                        f"{join_spec.left_feature_set_name} feature set can not be join to"
+                        f"{join_spec.right_feature_set_name}."
+                    )
+                right_node = BaseMerger._Node(
+                    name=join_spec.right_feature_sets_name[i],
+                    data={
+                        "left_keys": left_keys,
+                        "right_keys": right_keys,
+                        "save_cols": [],
+                        "save_index": [],
+                        "join_type": join_spec.join_type[i],
+                    },
+                )
+                for key in right_keys:
+                    if (
+                        key
+                        in feature_set_objects[
+                            join_spec.right_feature_sets_name[i]
+                        ].spec.entities.keys()
+                    ):
+                        right_node.data["save_index"].append(key)
+                    else:
+                        right_node.data["save_cols"].append(key)
+                linked_list.add_last(right_node)
+
+                for key in left_keys:
+                    if (
+                        key
+                        in feature_set_objects[
+                            join_spec.left_feature_set_name
+                        ].spec.entities.keys()
+                    ):
+                        left_node.data["save_index"].append(key)
+                    else:
+                        left_node.data["save_cols"].append(key)
+        return linked_list
+
+    @staticmethod
+    def _create_linked_relation_list_from_entities(
+        feature_set_objects, feature_set_fields
+    ):
+        feature_set_names = list(feature_set_fields.keys())
+        linked_list, entities_base_fs, base_name = None, None, None
+        for name in feature_set_names:
+            if linked_list is None:
+                node = BaseMerger._Node(
+                    name=name,
+                    data={
+                        "left_keys": [],
+                        "right_keys": [],
+                        "save_cols": [],
+                        "save_index": [],
+                        "join_type": None,
+                    },
+                )
+                linked_list = BaseMerger._LinkedList(head=node)
+                entities_base_fs = list(feature_set_objects[name].spec.entities.keys())
+                base_name = name
+                continue
+            if not sorted(entities_base_fs) == sorted(
+                list(feature_set_objects[name].spec.entities.keys())
+            ):
+                raise mlrun.errors.MLRunRuntimeError(
+                    f"{name} feature set can not be join to" f"{base_name}."
+                )
+            right_node = BaseMerger._Node(
+                name=name,
+                data={
+                    "left_keys": entities_base_fs,
+                    "right_keys": entities_base_fs,
+                    "save_cols": [],
+                    "save_index": [],
+                    "join_type": "inner",
+                },
+            )
+            linked_list.add_last(right_node)
+        return linked_list
 
     @classmethod
     def get_default_image(cls, kind):

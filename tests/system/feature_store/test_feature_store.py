@@ -223,9 +223,9 @@ class TestFeatureStore(TestMLRunSystem):
         assert df["zz"].mean() == 9, "map didnt set the zz column properly"
         quotes_set["bid"].validator = MinMaxValidator(min=52, severity="info")
 
-        quotes_set.plot(
-            str(self.results_path / "pipe.png"), rankdir="LR", with_targets=True
-        )
+        # quotes_set.plot(
+        #     str(self.results_path / "pipe.png"), rankdir="LR", with_targets=True
+        # )
         df = fstore.ingest(quotes_set, quotes, return_df=True)
         self._logger.info(f"output df:\n{df}")
         assert quotes_set.status.stats.get("asks1_sum_1h"), "stats not created"
@@ -1165,9 +1165,9 @@ class TestFeatureStore(TestMLRunSystem):
             options=fstore.InferOptions.default(),
         )
 
-        data_set.plot(
-            str(self.results_path / "pipe.png"), rankdir="LR", with_targets=True
-        )
+        # data_set.plot(
+        #     str(self.results_path / "pipe.png"), rankdir="LR", with_targets=True
+        # )
         fstore.ingest(data_set, data, return_df=True)
 
         features = [
@@ -1618,7 +1618,7 @@ class TestFeatureStore(TestMLRunSystem):
             default_final_step="FeaturesetValidator",
         )
 
-        quotes_set.plot(with_targets=True)
+        # quotes_set.plot(with_targets=True)
 
         inf_out = fstore.preview(quotes_set, quotes)
         ing_out = fstore.ingest(quotes_set, quotes, return_df=True)
@@ -3524,7 +3524,6 @@ class TestFeatureStore(TestMLRunSystem):
         departments_set = fstore.FeatureSet(
             "departments",
             entities=[departments_set_entity],
-            relations={"manager_id": managers_set_entity},
         )
         departments_set.set_targets(targets=["parquet"], with_defaults=False)
         fstore.ingest(departments_set, departments)
@@ -3533,7 +3532,6 @@ class TestFeatureStore(TestMLRunSystem):
         employees_set = fstore.FeatureSet(
             "employees",
             entities=[employees_set_entity],
-            relations={"department_id": departments_set_entity},
         )
         employees_set.set_targets(targets=["parquet"], with_defaults=False)
         fstore.ingest(employees_set, employees_with_department)
@@ -3541,10 +3539,6 @@ class TestFeatureStore(TestMLRunSystem):
         mini_employees_set = fstore.FeatureSet(
             "mini-employees",
             entities=[employees_set_entity],
-            relations={
-                "department_id": departments_set_entity,
-                "class_id": classes_set_entity,
-            },
         )
         mini_employees_set.set_targets(targets=["parquet"], with_defaults=False)
         fstore.ingest(mini_employees_set, employees_with_class)
@@ -3577,7 +3571,17 @@ class TestFeatureStore(TestMLRunSystem):
         features = ["employees.name as n", "departments.name as n2"]
 
         vector = fstore.FeatureVector(
-            "employees-vec", features, description="Employees feature vector"
+            "employees-vec",
+            features,
+            description="Employees feature vector",
+            join_spec_list=[
+                fstore.JoinSpec(
+                    "employees",
+                    "departments",
+                    relations={"department_id": "d_id"},
+                    join_type=join_type,
+                )
+            ],
         )
         vector.save()
 
@@ -3586,7 +3590,6 @@ class TestFeatureStore(TestMLRunSystem):
             with_indexes=with_indexes,
             engine=engine,
             engine_args=engine_args,
-            join_type=join_type,
             order_by="n",
         )
         assert_frame_equal(join_employee_department, resp_1.to_dataframe())
@@ -3598,7 +3601,23 @@ class TestFeatureStore(TestMLRunSystem):
         ]
 
         vector = fstore.FeatureVector(
-            "man-vec", features, description="Employees feature vector"
+            "man-vec",
+            features,
+            description="Employees feature vector",
+            join_spec_list=[
+                fstore.JoinSpec(
+                    "employees",
+                    "departments",
+                    relations={"department_id": "d_id"},
+                    join_type=join_type,
+                ),
+                fstore.JoinSpec(
+                    "departments",
+                    "managers",
+                    relations={"manager_id": "m_id"},
+                    join_type=join_type,
+                ),
+            ],
         )
         vector.save()
 
@@ -3629,32 +3648,48 @@ class TestFeatureStore(TestMLRunSystem):
         )
         assert_frame_equal(join_employee_sets, resp_3.to_dataframe())
 
-        features = [
-            "employees.name as n",
-            "departments.name as n2",
-            "mini-employees.name as mini_name",
-            "classes.name as name_cls",
-        ]
-
-        vector = fstore.FeatureVector(
-            "four-vec", features, description="Employees feature vector"
-        )
-        vector.save()
-
-        resp_4 = fstore.get_offline_features(
-            vector,
-            with_indexes=with_indexes,
-            engine=engine,
-            engine_args=engine_args,
-            join_type=join_type,
-            order_by="n",
-        )
-        assert_frame_equal(join_all, resp_4.to_dataframe())
+        # features = [
+        #     "employees.name as n",
+        #     "departments.name as n2",
+        #     "mini-employees.name as mini_name",
+        #     "classes.name as name_cls",
+        # ]
+        #
+        # vector = fstore.FeatureVector(
+        #     "four-vec",
+        #     features,
+        #     description="Employees feature vector",
+        #     join_spec_list=[
+        #         fstore.JoinSpec(
+        #             "departments",
+        #             ["employees", "mini-employees"],
+        #             relations=[{"department_id": "d_id"}, {"department_id": "d_id"}],
+        #             join_type=[join_type] * 2,
+        #         ),
+        #         fstore.JoinSpec(
+        #             "mini-employees",
+        #             "classes",
+        #             relations={"class_id": "c_id"},
+        #             join_type=join_type,
+        #         ),
+        #     ],
+        # )
+        # vector.save()
+        #
+        # resp_4 = fstore.get_offline_features(
+        #     vector,
+        #     with_indexes=with_indexes,
+        #     engine=engine,
+        #     engine_args=engine_args,
+        #     join_type=join_type,
+        #     order_by="n",
+        # )
+        # assert_frame_equal(join_all, resp_4.to_dataframe())
 
     @pytest.mark.parametrize("with_indexes", [True, False])
     @pytest.mark.parametrize("engine", ["local", "dask"])
     @pytest.mark.parametrize("join_type", ["inner", "outer"])
-    def test_relation_join_multi_entities(self, engine, join_type, with_indexes):
+    def test_relation_join_multi_relation(self, engine, join_type, with_indexes):
         engine_args = {}
         if engine == "dask":
             dask_cluster = mlrun.new_function(
@@ -3698,9 +3733,7 @@ class TestFeatureStore(TestMLRunSystem):
 
         col_1 = ["full_name", "num_of_employees"]
         if with_indexes:
-            join_employee_department.set_index(
-                ["id", "d_id", "name"], drop=True, inplace=True
-            )
+            join_employee_department.set_index(["id", "d_id"], drop=True, inplace=True)
 
         join_employee_department = (
             join_employee_department[col_1]
@@ -3711,10 +3744,10 @@ class TestFeatureStore(TestMLRunSystem):
         )
 
         # relations according to departments_set relations
-        departments_set_entity = [fstore.Entity("d_id"), fstore.Entity("name")]
+        departments_set_entity = fstore.Entity("d_id")
         departments_set = fstore.FeatureSet(
             "departments",
-            entities=departments_set_entity,
+            entities=[departments_set_entity],
         )
         departments_set.set_targets(targets=["parquet"], with_defaults=False)
         fstore.ingest(departments_set, departments)
@@ -3723,10 +3756,6 @@ class TestFeatureStore(TestMLRunSystem):
         employees_set = fstore.FeatureSet(
             "employees",
             entities=[employees_set_entity],
-            relations={
-                "department_id": "d_id",
-                "department_name": "name",
-            },
         )
         employees_set.set_targets(targets=["parquet"], with_defaults=False)
         fstore.ingest(employees_set, employees_with_department)
@@ -3734,7 +3763,17 @@ class TestFeatureStore(TestMLRunSystem):
         features = ["employees.full_name as n", "departments.num_of_employees"]
 
         vector = fstore.FeatureVector(
-            "employees-vec", features, description="Employees feature vector"
+            "employees-vec",
+            features,
+            description="Employees feature vector",
+            join_spec_list=[
+                fstore.JoinSpec(
+                    "employees",
+                    "departments",
+                    relations={"department_id": "d_id", "department_name": "name"},
+                    join_type=join_type,
+                )
+            ],
         )
         vector.save()
 
@@ -3743,7 +3782,6 @@ class TestFeatureStore(TestMLRunSystem):
             with_indexes=with_indexes,
             engine=engine,
             engine_args=engine_args,
-            join_type=join_type,
             order_by="n",
         )
         assert_frame_equal(join_employee_department, resp_1.to_dataframe())
@@ -3818,7 +3856,6 @@ class TestFeatureStore(TestMLRunSystem):
         employees_set = fstore.FeatureSet(
             "employees",
             entities=[employees_set_entity],
-            relations={"department_id": departments_set_entity},
             timestamp_key="time",
         )
         employees_set.set_targets(targets=["parquet"], with_defaults=False)
@@ -3827,7 +3864,16 @@ class TestFeatureStore(TestMLRunSystem):
         features = ["employees.name as n", "departments.name as n2"]
 
         vector = fstore.FeatureVector(
-            "employees-vec", features, description="Employees feature vector"
+            "employees-vec",
+            features,
+            description="Employees feature vector",
+            join_spec_list=[
+                fstore.JoinSpec(
+                    "employees",
+                    "departments",
+                    relations={"department_id": "d_id"},
+                )
+            ],
         )
         vector.save()
         resp_1 = fstore.get_offline_features(

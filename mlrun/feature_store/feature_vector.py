@@ -15,7 +15,7 @@ import collections
 import logging
 from copy import copy
 from enum import Enum
-from typing import List, Union
+from typing import List, Union, Dict
 
 import numpy as np
 import pandas as pd
@@ -31,7 +31,14 @@ from ..feature_store.common import (
     parse_project_name_from_feature_string,
 )
 from ..features import Feature
-from ..model import DataSource, DataTarget, ModelObj, ObjectList, VersionedObjMetadata
+from ..model import (
+    DataSource,
+    DataTarget,
+    ModelObj,
+    ObjectList,
+    VersionedObjMetadata,
+    ObjectDict,
+)
 from ..runtimes.function_reference import FunctionReference
 from ..serving.states import RootFlowStep
 from ..utils import StorePrefix
@@ -151,6 +158,52 @@ class FeatureVectorStatus(ModelObj):
         self._features = ObjectList.from_list(Feature, features)
 
 
+class JoinSpec(ModelObj):
+    """JoinSpec ...."""
+
+    def __init__(
+        self,
+        left_feature_set_name: str = None,
+        right_feature_sets_name: Union[str, List[str]] = None,
+        relations: Union[
+            List[Dict[str, str]], Dict[str, str]
+        ] = None,  # {<feature - name | entity - name>: <feature - name | entity - name>}
+        name: str = None,
+        join_type: Union[str, List[str]] = None
+        # one of following values: "inner" (as with current code), "outer", "right", "left"
+    ):
+        """
+
+        :param left_feature_set_name:
+        :param right_feature_set_name:
+        :param relations:
+        :param join_type:
+        """
+
+        self.name = name or f"{left_feature_set_name}-{right_feature_sets_name}"
+        self.left_feature_set_name = left_feature_set_name or "$prev_join_spec"
+
+        right_feature_sets_name = (
+            [right_feature_sets_name]
+            if isinstance(right_feature_sets_name, str)
+            else right_feature_sets_name
+        )
+        self.right_feature_sets_name: List[str] = right_feature_sets_name or []
+
+        join_type = [join_type] if isinstance(join_type, str) else join_type
+        self.join_type = join_type or []
+
+        relations = [relations] if isinstance(relations, dict) else relations
+        self.relations: List[Dict[str, str]] = relations or []
+
+        if len(self.relations) != len(self.right_feature_sets_name) or (
+            len(self.join_type) != 0 and len(self.join_type) != len(self.relations)
+        ):
+            raise mlrun.errors.MLRunInvalidArgumentError("")
+        elif len(self.join_type) == 0:
+            self.join_type = ["inner"] * len(self.relations)
+
+
 class FeatureVector(ModelObj):
     """Feature vector, specify selected features, their metadata and material views"""
 
@@ -159,11 +212,12 @@ class FeatureVector(ModelObj):
 
     def __init__(
         self,
-        name=None,
-        features=None,
-        label_feature=None,
-        description=None,
-        with_indexes=None,
+        name: str = None,
+        features: List[str] = None,
+        label_feature: str = None,
+        description: str = None,
+        with_indexes: bool = None,
+        join_spec_list: List[JoinSpec] = None,
     ):
         """Feature vector, specify selected features, their metadata and material views
 
@@ -190,6 +244,7 @@ class FeatureVector(ModelObj):
         self._spec: FeatureVectorSpec = None
         self._metadata = None
         self._status = None
+        self._join_spec_list: ObjectList = None
 
         self.spec = FeatureVectorSpec(
             description=description,
@@ -199,6 +254,7 @@ class FeatureVector(ModelObj):
         )
         self.metadata = VersionedObjMetadata(name=name)
         self.status = None
+        self.join_spec_list: List[JoinSpec] = join_spec_list or []
 
         self._entity_df = None
         self._feature_set_fields = {}
@@ -238,6 +294,16 @@ class FeatureVector(ModelObj):
         if self._metadata.tag:
             uri += ":" + self._metadata.tag
         return uri
+
+    @property
+    def join_spec_list(self) -> List[JoinSpec]:
+        """feature set features list"""
+        return self._join_spec_list
+
+    @join_spec_list.setter
+    def join_spec_list(self, join_spec_list: List[JoinSpec]):
+        self._verify_spec_list(join_spec_list)
+        self._join_spec_list = ObjectList.from_list(JoinSpec, join_spec_list)
 
     def link_analysis(self, name, uri):
         """add a linked file/artifact (chart, data, ..)"""
@@ -379,6 +445,36 @@ class FeatureVector(ModelObj):
 
         self.status.index_keys = index_keys
         return feature_set_objects, feature_set_fields
+
+    @staticmethod
+    def _verify_spec_list(join_spec_list: List[JoinSpec]):
+        """
+
+        :param join_spec_list:
+        :return:
+        """
+
+        feature_set_name_list = []
+        for join_spec in join_spec_list:
+            if not feature_set_name_list:
+                feature_set_name_list.extend(
+                    [
+                        join_spec.left_feature_set_name,
+                        *join_spec.right_feature_sets_name,
+                    ]
+                )
+            elif join_spec.left_feature_set_name in feature_set_name_list:
+                feature_set_name_list.extend(join_spec.right_feature_sets_name)
+            else:
+                raise mlrun.errors.MLRunRuntimeError(
+                    f"Inside the `join_spec_list` list the left_feature_set_name "
+                    f"(apart from first join_object) must reference feature_set "
+                    f"in one of the previous join_spec in the list. "
+                    f"In your case {join_spec.left_feature_set_name} was never mention"
+                    f" in the previous join_spec in the list"
+                )
+
+            # what happened when the same fset returns on the right side of the join
 
 
 class OnlineVectorService:

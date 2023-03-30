@@ -44,6 +44,7 @@ class DaskFeatureMerger(BaseMerger):
         featureset_df,
         left_keys: list,
         right_keys: list,
+        join_type: str,
     ):
 
         merged_df = merge_asof(
@@ -69,13 +70,14 @@ class DaskFeatureMerger(BaseMerger):
         featureset_df,
         left_keys: list,
         right_keys: list,
+        join_type: str,
     ):
 
         fs_name = featureset.metadata.name
         merged_df = merge(
             entity_df,
             featureset_df,
-            how=self._join_type,
+            how=join_type,
             left_on=left_keys,
             right_on=right_keys,
             suffixes=("", f"_{fs_name}_"),

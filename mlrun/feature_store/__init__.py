@@ -32,6 +32,7 @@ __all__ = [
     "OfflineVectorResponse",
     "OnlineVectorService",
     "FixedWindowType",
+    "JoinSpec",
 ]
 
 
@@ -55,4 +56,5 @@ from .feature_vector import (
     FixedWindowType,
     OfflineVectorResponse,
     OnlineVectorService,
+    JoinSpec,
 )

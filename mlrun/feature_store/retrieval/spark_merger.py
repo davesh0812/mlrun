@@ -44,6 +44,7 @@ class SparkFeatureMerger(BaseMerger):
         featureset_df,
         left_keys: list,
         right_keys: list,
+        join_type: str,
     ):
 
         """Perform an as of join between entity and featureset.
@@ -60,6 +61,8 @@ class SparkFeatureMerger(BaseMerger):
             DataFrame: Join result, which contains all the original columns from entity_df, as well
                 as all the features specified in featureset, where the feature columns will
                 be prefixed with featureset_df name.
+                :param join_type:
+                :param join_type:
         """
 
         from pyspark.sql import Window
@@ -123,6 +126,7 @@ class SparkFeatureMerger(BaseMerger):
         featureset_df,
         left_keys: list,
         right_keys: list,
+        join_type: str,
     ):
 
         """
@@ -141,6 +145,8 @@ class SparkFeatureMerger(BaseMerger):
             DataFrame: Join result, which contains all the original columns from entity_df, as well
                 as all the features specified in featureset, where the feature columns will
                 be prefixed with featureset_df name.
+                :param join_type:
+                :param join_type:
 
         """
         if left_keys != right_keys:
@@ -154,7 +160,7 @@ class SparkFeatureMerger(BaseMerger):
         merged_df = entity_df.join(
             featureset_df,
             join_cond,
-            how=self._join_type,
+            how=join_type,
         )
         return merged_df
 
