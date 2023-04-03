@@ -65,7 +65,7 @@ class TestFeatureStoreSqlDB(TestMLRunSystem):
                 "ticker": str,
                 "bid": float,
                 "ask": float,
-                "ind": int,
+                "index": int,
             }
         elif data_name == "trades":
             return {
@@ -286,7 +286,7 @@ class TestFeatureStoreSqlDB(TestMLRunSystem):
 
         assert df[columns].equals(origin_df[columns])
 
-    @pytest.mark.parametrize("target_name, key", [("quotes", "ind")])
+    @pytest.mark.parametrize("target_name, key", [("quotes", "index")])
     @pytest.mark.parametrize("fset_engine", ["pandas", "storey"])
     def test_sql_get_online_feature_basic(
         self, target_name: str, key: str, fset_engine
@@ -403,7 +403,7 @@ class TestFeatureStoreSqlDB(TestMLRunSystem):
                 ],
                 "bid": [720.50, 51.95, 51.97, 51.99, 720.50, 97.99, 720.50, 52.01],
                 "ask": [720.93, 51.96, 51.98, 52.00, 720.93, 98.01, 720.88, 52.03],
-                "ind": [1, 2, 3, 4, 5, 6, 7, 8],
+                "index": [1, 2, 3, 4, 5, 6, 7, 8],
             }
         )
 

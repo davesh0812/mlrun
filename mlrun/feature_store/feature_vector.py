@@ -163,32 +163,33 @@ class JoinSpec(ModelObj):
 
     def __init__(
         self,
-        left_feature_set_name: str = None,
-        right_feature_sets_name: Union[str, List[str]] = None,
+        name: str,
+        left_operand: str,
+        right_operands: Union[str, List[str]],
         relations: Union[
             List[Dict[str, str]], Dict[str, str]
         ] = None,  # {<feature - name | entity - name>: <feature - name | entity - name>}
-        name: str = None,
         join_type: Union[str, List[str]] = None
         # one of following values: "inner" (as with current code), "outer", "right", "left"
     ):
         """
 
-        :param left_feature_set_name:
-        :param right_feature_set_name:
+        :param name:
+        :param left_operand:
+        :param right_operand:
         :param relations:
         :param join_type:
         """
 
-        self.name = name or f"{left_feature_set_name}-{right_feature_sets_name}"
-        self.left_feature_set_name = left_feature_set_name or "$prev_join_spec"
+        self.name = f'$js-{name}'
+        self.left_operand = left_operand
 
-        right_feature_sets_name = (
-            [right_feature_sets_name]
-            if isinstance(right_feature_sets_name, str)
-            else right_feature_sets_name
+        right_operands = (
+            [right_operands]
+            if isinstance(right_operands, str)
+            else right_operands
         )
-        self.right_feature_sets_name: List[str] = right_feature_sets_name or []
+        self.right_operands: List[str] = right_operands or []
 
         join_type = [join_type] if isinstance(join_type, str) else join_type
         self.join_type = join_type or []
@@ -196,10 +197,11 @@ class JoinSpec(ModelObj):
         relations = [relations] if isinstance(relations, dict) else relations
         self.relations: List[Dict[str, str]] = relations or []
 
-        if len(self.relations) != len(self.right_feature_sets_name) or (
+        if len(self.relations) != len(self.right_operands) or (
             len(self.join_type) != 0 and len(self.join_type) != len(self.relations)
         ):
-            raise mlrun.errors.MLRunInvalidArgumentError("")
+            raise mlrun.errors.MLRunInvalidArgumentError("The len of join_type list is "
+                                                         "different from relations list len.")
         elif len(self.join_type) == 0:
             self.join_type = ["inner"] * len(self.relations)
 
@@ -454,27 +456,19 @@ class FeatureVector(ModelObj):
         :return:
         """
 
-        feature_set_name_list = []
+        spec_name_list = {}
         for join_spec in join_spec_list:
-            if not feature_set_name_list:
-                feature_set_name_list.extend(
-                    [
-                        join_spec.left_feature_set_name,
-                        *join_spec.right_feature_sets_name,
-                    ]
-                )
-            elif join_spec.left_feature_set_name in feature_set_name_list:
-                feature_set_name_list.extend(join_spec.right_feature_sets_name)
-            else:
-                raise mlrun.errors.MLRunRuntimeError(
-                    f"Inside the `join_spec_list` list the left_feature_set_name "
-                    f"(apart from first join_object) must reference feature_set "
-                    f"in one of the previous join_spec in the list. "
-                    f"In your case {join_spec.left_feature_set_name} was never mention"
-                    f" in the previous join_spec in the list"
-                )
+            if "$js-" in join_spec.left_operand and join_spec.left_operand not in spec_name_list.keys():
+                raise mlrun.errors.MLRunRuntimeError(f"Can't use {join_spec.left_operand} before assign")
+            for right_operand in join_spec.right_operands:
+                if "$js-" in right_operand and right_operand not in spec_name_list.keys():
+                    raise mlrun.errors.MLRunRuntimeError(f"Can't use {join_spec.left_operand} before assign")
 
-            # what happened when the same fset returns on the right side of the join
+            spec_name_list[join_spec.name] = 1 if join_spec.name in spec_name_list.keys() else 0
+
+        if not all(list(spec_name_list.values())):
+            raise mlrun.errors.MLRunRuntimeError(f"You have to use all of the join spec you created in the process"
+                                                 f"in order to get one data frame as result.")
 
 
 class OnlineVectorService:
