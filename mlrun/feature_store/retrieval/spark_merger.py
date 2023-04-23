@@ -194,7 +194,7 @@ class SparkFeatureMerger(BaseMerger):
         column_names=None,
         start_time=None,
         end_time=None,
-        entity_timestamp_column=None,
+        timestamp_column=None,
     ):
         if feature_set.spec.passthrough:
             if not feature_set.spec.source:
@@ -212,34 +212,17 @@ class SparkFeatureMerger(BaseMerger):
             source_kind = target.kind
             source_path = target.get_target_path()
 
-        # handling case where there are multiple feature sets and user creates vector where
-        # entity_timestamp_column is from a specific feature set (can't be entity timestamp)
         source_driver = mlrun.datastore.sources.source_kind_to_driver[source_kind]
-        if (
-            entity_timestamp_column in column_names
-            or feature_set.spec.timestamp_key == entity_timestamp_column
-        ):
-            source = source_driver(
-                name=self.vector.metadata.name,
-                path=source_path,
-                time_field=entity_timestamp_column,
-                start_time=start_time,
-                end_time=end_time,
-            )
-        else:
-            source = source_driver(
-                name=self.vector.metadata.name,
-                path=source_path,
-                time_field=entity_timestamp_column,
-            )
-
-        if not entity_timestamp_column:
-            entity_timestamp_column = feature_set.spec.timestamp_key
-        # add the index/key to selected columns
-        timestamp_key = feature_set.spec.timestamp_key
+        source = source_driver(
+            name=self.vector.metadata.name,
+            path=source_path,
+            time_field=timestamp_column,
+            start_time=start_time,
+            end_time=end_time,
+        )
 
         return source.to_spark_df(
-            self.spark, named_view=self.named_view, time_field=timestamp_key
+            self.spark, named_view=self.named_view, time_field=timestamp_column
         )
 
     def _rename_columns_and_select(

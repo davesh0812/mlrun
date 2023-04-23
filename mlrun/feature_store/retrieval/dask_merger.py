@@ -117,14 +117,14 @@ class DaskFeatureMerger(BaseMerger):
         column_names=None,
         start_time=None,
         end_time=None,
-        entity_timestamp_column=None,
+        timestamp_column=None,
     ):
         df = feature_set.to_dataframe(
             columns=column_names,
             df_module=dd,
             start_time=start_time,
             end_time=end_time,
-            time_column=entity_timestamp_column,
+            time_column=timestamp_column,
             index=False,
         )
 

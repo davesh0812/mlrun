@@ -109,24 +109,24 @@ class LocalFeatureMerger(BaseMerger):
         column_names=None,
         start_time=None,
         end_time=None,
-        entity_timestamp_column=None,
+        timestamp_column=None,
     ):
         # handling case where there are multiple feature sets and user creates vector where entity_timestamp_
         # column is from a specific feature set (can't be entity timestamp)
         if (
-            entity_timestamp_column in column_names
-            or feature_set.spec.timestamp_key == entity_timestamp_column
+            timestamp_column in column_names
+            or feature_set.spec.timestamp_key == timestamp_column
         ):
             df = feature_set.to_dataframe(
                 columns=column_names,
                 start_time=start_time,
                 end_time=end_time,
-                time_column=entity_timestamp_column,
+                time_column=timestamp_column,
             )
         else:
             df = feature_set.to_dataframe(
                 columns=column_names,
-                time_column=entity_timestamp_column,
+                time_column=timestamp_column,
             )
         if df.index.names[0]:
             df.reset_index(inplace=True)

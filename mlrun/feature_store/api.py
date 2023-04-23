@@ -143,9 +143,9 @@ def get_offline_features(
     :param run_config:     function and/or run configuration
                            see :py:class:`~mlrun.feature_store.RunConfig`
     :param start_time:      datetime, low limit of time needed to be filtered. Optional.
-        entity_timestamp_column must be passed when using time filtering.
     :param end_time:        datetime, high limit of time needed to be filtered. Optional.
-        entity_timestamp_column must be passed when using time filtering.
+                            * start_time, end_time used only for filter the different `featureset`
+                            according to their timestamp key.
     :param with_indexes:    return vector with index columns and timestamp_key from the feature sets (default False)
     :param update_stats:    update features statistics from the requested feature sets on the vector. Default is False.
     :param engine:          processing engine kind ("local", "dask", or "spark")
@@ -198,10 +198,6 @@ def get_offline_features(
 
     start_time = str_to_timestamp(start_time)
     end_time = str_to_timestamp(end_time)
-    if (start_time or end_time) and not entity_timestamp_column:
-        raise TypeError(
-            "entity_timestamp_column or feature_vector.spec.timestamp_field is required when passing start/end time"
-        )
     if start_time and not end_time:
         # if end_time is not specified set it to now()
         end_time = pd.Timestamp.now()

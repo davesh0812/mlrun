@@ -202,9 +202,9 @@ class BaseMerger(abc.ABC):
                 feature_set,
                 name,
                 column_names,
-                start_time,
-                end_time,
-                entity_timestamp_column,
+                start_time if feature_set.spec.timestamp_key else None,
+                end_time if feature_set.spec.timestamp_key else None,
+                feature_set.spec.timestamp_key,
             )
 
             column_names += node.data["save_index"]
@@ -213,9 +213,6 @@ class BaseMerger(abc.ABC):
                 entity_timestamp_column_list = [feature_set.spec.timestamp_key]
                 column_names += entity_timestamp_column_list
                 node.data["save_cols"] += entity_timestamp_column_list
-                if not entity_timestamp_column:
-                    # if not entity_timestamp_column the firs `FeatureSet` will define it
-                    entity_timestamp_column = feature_set.spec.timestamp_key
 
             # rename columns to be unique for each feature set and select if needed
             rename_col_dict = {
@@ -343,13 +340,16 @@ class BaseMerger(abc.ABC):
             keys[0][0] = keys[0][1] = list(featuresets[0].spec.entities.keys())
 
         for featureset, featureset_df, lr_key in zip(featuresets, featureset_dfs, keys):
-            if featureset.spec.timestamp_key:
+            if featureset.spec.timestamp_key and entity_timestamp_column:
                 merge_func = self._asof_join
                 if self._join_type != "inner":
                     logger.warn(
                         "Merge all the features with as_of_join and don't "
                         "take into account the join_type that was given"
                     )
+            elif featureset.spec.timestamp_key and not entity_timestamp_column:
+                entity_timestamp_column = featureset.spec.timestamp_key
+                merge_func = self._join
             else:
                 merge_func = self._join
 
@@ -653,7 +653,7 @@ class BaseMerger(abc.ABC):
         column_names: typing.List[str] = None,
         start_time: typing.Union[str, datetime] = None,
         end_time: typing.Union[str, datetime] = None,
-        entity_timestamp_column: str = None,
+        timestamp_column: str = None,
     ):
         """
         Return the feature_set data frame according to the args
@@ -663,7 +663,7 @@ class BaseMerger(abc.ABC):
         :param column_names:            list of columns to select (if not all)
         :param start_time:              filter by start time
         :param end_time:                filter by end time
-        :param entity_timestamp_column: specify the time column name in the file
+        :param timestamp_column: specify the time column name in the file
 
         :return: Data frame of the current engine
         """
