@@ -291,6 +291,13 @@ class ModelEndpoints:
         driver.update_resource_status("created")
 
         # Save the new feature set
+        logger.debug(
+            "Model monitoring feature set spec",
+            model_endpoint=model_endpoint.spec.model,
+            parquet_target=parquet_path,
+            feature_set_spec=feature_set.spec.to_dict(),
+        )
+
         feature_set.save()
         logger.info(
             "Monitoring feature set created",
