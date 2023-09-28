@@ -237,7 +237,7 @@ class BaseStep(ModelObj):
             name = path_splitter.join([self._parent.fullname, name])
         return name.replace(":", "_")  # replace for graphviz escaping
 
-    def _post_init(self, mode="sync"):
+    def _post_init(self, mode="sync", **kwargs):
         pass
 
     def _set_error_handler(self):
@@ -498,9 +498,9 @@ class TaskStep(BaseStep):
     def clear_object(self):
         self._object = None
 
-    def _post_init(self, mode="sync"):
+    def _post_init(self, mode="sync", **kwargs):
         if self._object and hasattr(self._object, "post_init"):
-            self._object.post_init(mode)
+            self._object.post_init(mode, route=kwargs.get("route"))
             if hasattr(self._object, "model_endpoint_uid"):
                 self.endpoint_uid = self._object.model_endpoint_uid
 
@@ -652,7 +652,7 @@ class RouterStep(TaskStep):
                 # model function is not specified use the router function
                 route.function = self.function
             route.set_parent(self)
-            route.init_object(context, namespace, mode, reset=reset)
+            route.init_object(context, namespace, mode, reset=reset, route=True)
 
         self._set_error_handler()
         self._post_init(mode)

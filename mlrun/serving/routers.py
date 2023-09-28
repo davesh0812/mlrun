@@ -109,7 +109,7 @@ class BaseModelRouter(RouterToDict):
 
         return parsed_event
 
-    def post_init(self, mode="sync"):
+    def post_init(self, mode="sync", **kwargs):
         self.context.logger.info(f"Loaded {list(self.routes.keys())}")
 
     def get_metadata(self):
@@ -618,7 +618,7 @@ class VotingEnsemble(ParallelRun):
         self.format_response_with_col_name_flag = format_response_with_col_name_flag
         self.model_endpoint_uid = None
 
-    def post_init(self, mode="sync"):
+    def post_init(self, mode="sync", **kwargs):
         server = getattr(self.context, "_server", None) or getattr(
             self.context, "server", None
         )
@@ -1085,19 +1085,19 @@ def _init_endpoint_record(
                 model_endpoint=model_endpoint.dict(),
             )
 
-            # Update model endpoint children type
-            for model_endpoint in children_uids:
-                current_endpoint = db.get_model_endpoint(
-                    project=project, endpoint_id=model_endpoint
-                )
-                current_endpoint.status.endpoint_type = (
-                    mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
-                )
-                db.create_model_endpoint(
-                    project=project,
-                    endpoint_id=model_endpoint,
-                    model_endpoint=current_endpoint,
-                )
+            # # Update model endpoint children type
+            # for model_endpoint in children_uids:
+            #     current_endpoint = db.get_model_endpoint(
+            #         project=project, endpoint_id=model_endpoint
+            #     )
+            #     current_endpoint.status.endpoint_type = (
+            #         mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
+            #     )
+            #     db.create_model_endpoint(
+            #         project=project,
+            #         endpoint_id=model_endpoint,
+            #         model_endpoint=current_endpoint,
+            #     )
 
         except Exception as exc:
             logger.warning(
@@ -1173,7 +1173,7 @@ class EnrichmentModelRouter(ModelRouter):
 
         self._feature_service = None
 
-    def post_init(self, mode="sync"):
+    def post_init(self, mode="sync", **kwargs):
         super().post_init(mode)
         self._feature_service = mlrun.feature_store.get_online_feature_service(
             feature_vector=self.feature_vector_uri,
@@ -1316,7 +1316,7 @@ class EnrichmentVotingEnsemble(VotingEnsemble):
 
         self._feature_service = None
 
-    def post_init(self, mode="sync"):
+    def post_init(self, mode="sync", **kwargs):
         super().post_init(mode)
         self._feature_service = mlrun.feature_store.get_online_feature_service(
             feature_vector=self.feature_vector_uri,
