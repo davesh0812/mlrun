@@ -441,7 +441,7 @@ class TaskStep(BaseStep):
 
         self._set_error_handler()
         if mode != "skip":
-            self._post_init(mode)
+            self._post_init(mode, route=extra_kwargs.get('route') or False)
 
     def get_full_class_args(self, namespace, class_object, **extra_kwargs):
         class_args = {}
