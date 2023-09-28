@@ -29,7 +29,7 @@ from ..datastore.utils import parse_kafka_url
 from ..errors import MLRunInvalidArgumentError, err_to_str
 from ..model import ModelObj, ObjectDict
 from ..platforms.iguazio import parse_path
-from ..utils import get_class, get_function, is_explicit_ack_supported
+from ..utils import get_class, get_function, is_explicit_ack_supported, logger
 from .utils import StepToDict, _extract_input_data, _update_result_body
 
 callable_prefix = "_"
@@ -441,7 +441,7 @@ class TaskStep(BaseStep):
 
         self._set_error_handler()
         if mode != "skip":
-            self._post_init(mode, route=extra_kwargs.get('route') or False)
+            self._post_init(mode, route=extra_kwargs.get('route', False))
 
     def get_full_class_args(self, namespace, class_object, **extra_kwargs):
         class_args = {}
@@ -500,6 +500,7 @@ class TaskStep(BaseStep):
 
     def _post_init(self, mode="sync", **kwargs):
         if self._object and hasattr(self._object, "post_init"):
+            logger.info(f"[DAVID] route is {kwargs.get('route')} in _post_init of task")
             self._object.post_init(mode, route=kwargs.get("route"))
             if hasattr(self._object, "model_endpoint_uid"):
                 self.endpoint_uid = self._object.model_endpoint_uid

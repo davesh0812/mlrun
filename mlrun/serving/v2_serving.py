@@ -511,6 +511,7 @@ def _init_endpoint_record(
 
     if create or (
         model_endpoint is not None
+        and route
         and model_endpoint.status.endpoint_type
         == mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
     ):
@@ -540,10 +541,14 @@ def _init_endpoint_record(
                 )
 
                 if route:
+                    logger.info("[DAVID] route is True",)
                     model_endpoint.status.endpoint_type = (
                         mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
                     )
 
+                logger.info("[DAVID] model endpoint to create",
+                            uid=uid,
+                            model_endpoint=model_endpoint.dict())
                 db.create_model_endpoint(
                     project=project,
                     endpoint_id=uid,
