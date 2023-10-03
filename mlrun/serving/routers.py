@@ -1093,7 +1093,7 @@ def _init_endpoint_record(
                 current_endpoint.status.endpoint_type = (
                     mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
                 )
-                db.create_model_endpoint(
+                db.update_model_endpoint(
                     project=project,
                     endpoint_id=model_endpoint,
                     model_endpoint=current_endpoint,
