@@ -744,13 +744,13 @@ class ProcessEndpointEvent(mlrun.feature_store.steps.MapClass):
         events = []
         for i, (feature, prediction) in enumerate(zip(features, predictions)):
             # Validate that inputs are based on numeric values
-            if not self.is_valid(
-                endpoint_id,
-                self.is_list_of_numerics,
-                feature,
-                ["request", f"[{i}]"],
-            ):
-                return None
+            # if not self.is_valid(
+            #     endpoint_id,
+            #     self.is_list_of_numerics,
+            #     feature,
+            #     ["request", f"[{i}]"],
+            # ):
+            #     return None
 
             if not isinstance(prediction, list):
                 prediction = [prediction]
