@@ -123,4 +123,6 @@ def pad_features_hist(feature_stats: FeatureStats) -> None:
     inplace to cover input statistics from -inf to inf.
     """
     for feature in feature_stats.values():
-        pad_hist(Histogram(feature["hist"]))
+        hist = feature.get("hist")
+        if hist:
+            pad_hist(Histogram(feature.get("hist", [[]])))
