@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import typing
 from typing import Any, Dict, List, Type, Union
 
 import numpy as np
@@ -158,7 +159,9 @@ class PyTorchModelServer(V2ModelServer):
             model=self._model_handler.model, context=self.context
         )
 
-    def predict(self, request: Dict[str, Any]) -> Union[Tensor, list]:
+    def predict(
+        self, request: Dict[str, Any]
+    ) -> typing.Tuple[Union[Tensor, list], dict[str, float]]:
         """
         Infer the inputs through the model using MLRun's PyTorch interface and return its output. The inferred data will
         be read from the "inputs" key of the request.
@@ -181,7 +184,7 @@ class PyTorchModelServer(V2ModelServer):
         )
 
         # Return as list if required:
-        return predictions if not self.to_list else predictions.tolist()
+        return predictions if not self.to_list else predictions.tolist(), {}
 
     def explain(self, request: Dict[str, Any]) -> str:
         """

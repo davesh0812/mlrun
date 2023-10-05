@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import tempfile
+import typing
 from os import path
 from typing import List
 
@@ -37,6 +38,7 @@ class ModelArtifactSpec(ArtifactSpec):
         "parameters",
         "inputs",
         "outputs",
+        "auxiliary_information",
         "framework",
         "algorithm",
         "feature_vector",
@@ -61,6 +63,7 @@ class ModelArtifactSpec(ArtifactSpec):
         paraemeters=None,
         inputs: List[Feature] = None,
         outputs: List[Feature] = None,
+        auxiliary_information: List[Feature] = None,
         framework=None,
         algorithm=None,
         feature_vector=None,
@@ -84,6 +87,7 @@ class ModelArtifactSpec(ArtifactSpec):
         self.parameters = paraemeters or {}
         self.inputs: List[Feature] = inputs or []
         self.outputs: List[Feature] = outputs or []
+        self.auxiliary_information: List[Feature] = auxiliary_information or []
         self.framework = framework
         self.algorithm = algorithm
         self.feature_vector = feature_vector
@@ -109,6 +113,23 @@ class ModelArtifactSpec(ArtifactSpec):
     def outputs(self, outputs: List[Feature]):
         self._outputs = ObjectList.from_list(Feature, outputs)
 
+    @property
+    def auxiliary_information(self) -> List[Feature]:
+        """output feature list"""
+        return self._auxiliary_information
+
+    @auxiliary_information.setter
+    def auxiliary_information(
+        self, auxiliary_information: List[typing.Union[Feature, str]]
+    ):
+        if auxiliary_information:
+            for i, feature in enumerate(auxiliary_information):
+                if isinstance(feature, str):
+                    auxiliary_information[i] = Feature(value_type="float", name=feature)
+        self._auxiliary_information = ObjectList.from_list(
+            Feature, auxiliary_information
+        )
+
 
 class ModelArtifact(Artifact):
     """ML Model artifact
@@ -130,6 +151,7 @@ class ModelArtifact(Artifact):
         parameters=None,
         inputs=None,
         outputs=None,
+        auxiliary_information=None,
         framework=None,
         algorithm=None,
         feature_vector=None,
@@ -150,6 +172,7 @@ class ModelArtifact(Artifact):
         self.spec.metrics = metrics or {}
         self.spec.inputs = inputs or []
         self.spec.outputs = outputs or []
+        self.spec.auxiliary_information = auxiliary_information or []
         self.spec.extra_data = extra_data or {}
         self.spec.framework = framework
         self.spec.algorithm = algorithm

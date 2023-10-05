@@ -748,7 +748,7 @@ class ProcessEndpointEvent(mlrun.feature_store.steps.MapClass):
             #     endpoint_id,
             #     self.is_list_of_numerics,
             #     feature,
-            #     ["request", f"[{i}]"],
+            #     ["request", "inputs", f"[{i}]"],
             # ):
             #     return None
 

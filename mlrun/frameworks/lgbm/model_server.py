@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from typing import Any, Dict, List, Union
+import typing
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 
@@ -139,7 +140,7 @@ class LGBMModelServer(V2ModelServer):
             self._model_handler.load()
         self.model = self._model_handler.model
 
-    def predict(self, request: Dict[str, Any]) -> Union[np.ndarray, list]:
+    def predict(self, request: Dict[str, Any]):
         """
         Infer the inputs through the model using MLRun's PyTorch interface and return its output. The inferred data will
         be read from the "inputs" key of the request.
@@ -156,7 +157,7 @@ class LGBMModelServer(V2ModelServer):
         predictions = self.model.predict(inputs)
 
         # Return as list if required:
-        return predictions if not self.to_list else predictions.tolist()
+        return predictions if not self.to_list else predictions.tolist(), {}
 
     def explain(self, request: Dict[str, Any]) -> str:
         """

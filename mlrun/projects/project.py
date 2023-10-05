@@ -1610,11 +1610,13 @@ class MlrunProject(ModelObj):
         labels=None,
         inputs: typing.List[Feature] = None,
         outputs: typing.List[Feature] = None,
+        auxiliary_information: typing.List[typing.Union[Feature, str]] = None,
         feature_vector: str = None,
         feature_weights: list = None,
         training_set=None,
         label_column=None,
         extra_data=None,
+        model_type: mm_constants.ModelType = None,
         **kwargs,
     ):
         """log a model artifact and optionally upload it to datastore
@@ -1670,6 +1672,7 @@ class MlrunProject(ModelObj):
             parameters=parameters,
             inputs=inputs,
             outputs=outputs,
+            auxiliary_information=auxiliary_information,
             framework=framework,
             algorithm=algorithm,
             feature_vector=feature_vector,
@@ -1678,7 +1681,11 @@ class MlrunProject(ModelObj):
             **kwargs,
         )
         if training_set is not None:
-            model.infer_from_df(training_set, label_column)
+            model.infer_from_df(
+                training_set,
+                label_column,
+                with_stats=model_type == mm_constants.ModelType.ML,
+            )
 
         item = self.log_artifact(
             model,

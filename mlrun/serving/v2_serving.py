@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import threading
 import time
 import traceback
+import typing
 from typing import Dict, Union
 
 import mlrun.common.model_monitoring
@@ -241,7 +242,7 @@ class V2ModelServer(StepToDict):
             # predict operation
             request = self._pre_event_processing_actions(event, event_body, op)
             try:
-                outputs = self.predict(request)
+                outputs, auxiliary_information = self.predict(request)
             except Exception as exc:
                 request["id"] = event_id
                 if self._model_logger:
@@ -252,6 +253,7 @@ class V2ModelServer(StepToDict):
                 "id": event_id,
                 "model_name": self.name,
                 "outputs": outputs,
+                "auxiliary_information": auxiliary_information,
             }
             if self.version:
                 response["model_version"] = self.version
@@ -370,7 +372,7 @@ class V2ModelServer(StepToDict):
         """postprocess, before returning response"""
         return request
 
-    def predict(self, request: Dict) -> Dict:
+    def predict(self, request: Dict) -> tuple[typing.List, dict[str, float]]:
         """model prediction operation"""
         raise NotImplementedError()
 

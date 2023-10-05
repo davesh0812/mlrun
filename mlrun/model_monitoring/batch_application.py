@@ -293,11 +293,14 @@ class BatchApplicationProcessor:
                 ]
             )
 
-            # Get the current stats:
-            current_stats = calculate_inputs_statistics(
-                sample_set_statistics=feature_stats,
-                inputs=df,
-            )
+            if feature_stats:
+                # Get the current stats:
+                current_stats = calculate_inputs_statistics(
+                    sample_set_statistics=feature_stats,
+                    inputs=df,
+                )
+            else:
+                current_stats = {}
 
             # create and push data to all applications
             BatchApplicationProcessor._push_to_applications(

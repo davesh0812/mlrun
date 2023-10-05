@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import typing
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -134,7 +135,9 @@ class ONNXModelServer(V2ModelServer):
             output_layer.name for output_layer in self._inference_session.get_outputs()
         ]
 
-    def predict(self, request: Dict[str, Any]) -> np.ndarray:
+    def predict(
+        self, request: Dict[str, Any]
+    ) -> typing.Tuple[np.ndarray, dict[str, float]]:
         """
         Infer the inputs through the model using ONNXRunTime and return its output. The inferred data will be
         read from the "inputs" key of the request.
@@ -147,12 +150,15 @@ class ONNXModelServer(V2ModelServer):
         inputs = request["inputs"]
 
         # Infer the inputs through the model:
-        return self._inference_session.run(
-            output_names=self._output_layers,
-            input_feed={
-                input_layer: data
-                for input_layer, data in zip(self._input_layers, inputs)
-            },
+        return (
+            self._inference_session.run(
+                output_names=self._output_layers,
+                input_feed={
+                    input_layer: data
+                    for input_layer, data in zip(self._input_layers, inputs)
+                },
+            ),
+            {},
         )
 
     def explain(self, request: Dict[str, Any]) -> str:

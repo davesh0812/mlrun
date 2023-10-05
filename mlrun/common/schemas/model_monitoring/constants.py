@@ -277,3 +277,8 @@ class ResultStatusApp(enum.IntEnum):
 class ModelMonitoringAppTag:
     KEY = "type"
     VAL = "model-monitoring-application"
+
+
+class ModelType:
+    ML = "ML"
+    DL = "DL"
