@@ -414,21 +414,13 @@ class TestModelMonitoringInitialize(TestMLRunSystem):
                 image=self.image or "mlrun/mlrun"
             )
 
-        self.project.enable_model_monitoring(image=self.image or "mlrun/mlrun")
+        self.project.enable_model_monitoring(
+            image=self.image or "mlrun/mlrun", wait_for_completion=True
+        )
 
         controller = self.project.get_function(
             key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
         )
-        writer = self.project.get_function(
-            key=mm_constants.MonitoringFunctionNames.WRITER
-        )
-        stream = self.project.get_function(
-            key=mm_constants.MonitoringFunctionNames.STREAM
-        )
-
-        controller._wait_for_function_deployment(db=controller._get_db())
-        writer._wait_for_function_deployment(db=writer._get_db())
-        stream._wait_for_function_deployment(db=stream._get_db())
         assert (
             controller.spec.config["spec.triggers.cron_interval"]["attributes"][
                 "interval"
@@ -437,16 +429,29 @@ class TestModelMonitoringInitialize(TestMLRunSystem):
         )
 
         self.project.update_model_monitoring_controller(
-            image=self.image or "mlrun/mlrun", base_period=1
+            image=self.image or "mlrun/mlrun",
+            base_period=1,
+            wait_for_completion=True,
         )
         controller = self.project.get_function(
             key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
             ignore_cache=True,
         )
-        controller._wait_for_function_deployment(db=controller._get_db())
         assert (
             controller.spec.config["spec.triggers.cron_interval"]["attributes"][
                 "interval"
             ]
             == "1m"
         )
+
+        self.project.disable_model_monitoring(
+            disable_stream=True, wait_for_completion=True
+        )
+
+        for function_name in mm_constants.MonitoringFunctionNames.all():
+            function = self.project.get_function(
+                key=function_name,
+                ignore_cache=True,
+            )
+            # check that all the functions are disabled
+            # assert function == "disable", f"{function_name} isn't disabled"

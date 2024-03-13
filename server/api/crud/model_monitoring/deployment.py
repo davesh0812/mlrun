@@ -118,11 +118,231 @@ class MonitoringDeployment:
             auth_info=auth_info,
             stream_image=image,
         )
+        self.enable_monitoring_user_functions(
+            project=project,
+            db_session=db_session,
+            auth_info=auth_info,
+        )
 
         return {
             k: v
             for d in [controller_dict, writer_dict, stream_dict]
             for k, v in d.items()
+        }
+
+    def disable_monitoring_server_functions(
+        self,
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        disable_stream=False,
+        disable_default_application=False,
+    ) -> None:
+        """
+        Disabled model monitoring application controller, writer, stream and default application functions,
+        according to the given params
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param disable_stream:              If True, it would disable model monitoring stream function,
+                                            need to use wisely because if you're disabling this function this can
+                                            cause data loss in case in the future you will want to enable
+                                            the model monitoring capability to the project. Default False.
+        :param disable_default_application: If True, it would disable the default histogram-based data drift
+                                            application. Default False.
+        """
+        for function_name in mm_constants.MonitoringFunctionNames.all():
+            if (
+                function_name == mm_constants.MonitoringFunctionNames.STREAM
+                and disable_stream
+                or function_name != mm_constants.MonitoringFunctionNames.STREAM
+            ):
+                self._disable_monitoring_function(
+                    project=project,
+                    db_session=db_session,
+                    auth_info=auth_info,
+                    function_name=function_name,
+                )
+        if disable_default_application:
+            self._disable_monitoring_function(
+                project=project,
+                db_session=db_session,
+                auth_info=auth_info,
+                function_name=mm_constants.MLRUN_HISTOGRAM_DATA_DRIFT_APP_NAME,
+            )
+
+    def disable_monitoring_user_functions(
+        self,
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        function_names: list[str] = None,
+    ) -> None:
+        """
+        Disabled model monitoring application controller, writer, stream  and default application functions,
+        according to the given params
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param function_names:              List of the user's model monitoring application for disabling.
+                                            Default all the applications.
+        """
+        model_monitoring_labels_list = [
+            f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
+        ]
+        function_names = (
+            function_names
+            or server.api.crud.Functions().list_functions(
+                db_session=db_session,
+                project=project,
+                labels=model_monitoring_labels_list,
+            )
+            or []
+        )
+
+        for function_name in function_names:
+            self._disable_monitoring_function(
+                project=project,
+                db_session=db_session,
+                auth_info=auth_info,
+                function_name=function_name,
+            )
+
+    def enable_monitoring_user_functions(
+        self,
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        function_names: list[str] = None,
+    ):
+        """
+        Disabled model monitoring user's applications functions, according to the given params
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param function_names:              List of the user's model monitoring application for disabling.
+                                            Default all the applications.
+
+        """
+        model_monitoring_labels_list = [
+            f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
+        ]
+        function_names = (
+            function_names
+            or server.api.crud.Functions().list_functions(
+                db_session=db_session,
+                project=project,
+                labels=model_monitoring_labels_list,
+            )
+            or []
+        )
+
+        for function_name in function_names:
+            self._enable_monitoring_function(
+                project=project,
+                db_session=db_session,
+                auth_info=auth_info,
+                function_name=function_name,
+            )
+
+    @staticmethod
+    def _disable_monitoring_function(
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        function_name: str,
+    ) -> dict:
+        """
+        Disabled the desired function.
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param function_name:               The name of the function to disable.
+        :return:
+        """
+        try:
+            fn = server.api.crud.Functions().get_function(
+                db_session=db_session,
+                name=function_name,
+                project=project,
+            )
+
+        except mlrun.errors.MLRunNotFoundError:
+            logger.info(
+                f"{function_name} is not found",
+                project=project,
+            )
+            return
+        spec = fn.get("spec")
+        spec["config"] = spec.get("config", {})
+        ready = None
+        if not spec["config"].get("spec.disable", False):
+            spec["config"]["spec.disable"] = True
+            fn["spec"] = spec
+            fn, ready = server.api.api.endpoints.functions._build_function(
+                db_session=db_session,
+                auth_info=auth_info,
+                function=fn,
+            )
+            logger.info(f"{function_name} is been disabled right now")
+        else:
+            logger.info(f"{function_name} is all ready disabled")
+
+        return {
+            "data": fn.to_dict(),
+            "ready": ready,
+        }
+
+    @staticmethod
+    def _enable_monitoring_function(
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        function_name: str,
+    ):
+        """
+        Enabled the desired function.
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param function_name:               The name of the function to enable.
+        :return:
+        """
+        try:
+            fn = server.api.crud.Functions().get_function(
+                db_session=db_session,
+                name=function_name,
+                project=project,
+            )
+
+        except mlrun.errors.MLRunNotFoundError:
+            logger.info(
+                f"{function_name} is not found ",
+                project=project,
+            )
+            return
+        spec = fn.get("spec")
+        spec["config"] = spec.get("config", {})
+        ready = None
+        if spec["config"].get("spec.disable", False):
+            spec["config"]["spec.disable"] = False
+            fn["spec"] = spec
+            fn, ready = server.api.api.endpoints.functions._build_function(
+                db_session=db_session,
+                auth_info=auth_info,
+                function=fn,
+            )
+            logger.info(f"{function_name} is been enabled right now")
+        else:
+            logger.info(f"{function_name} is all ready enabled")
+        return {
+            "data": fn.to_dict(),
+            "ready": ready,
         }
 
     def deploy_model_monitoring_stream_processing(
@@ -146,11 +366,22 @@ class MonitoringDeployment:
                                             By default, the image is mlrun/mlrun.
         """
 
-        MonitoringDeployment._check_if_already_deployed(
+        deployed = MonitoringDeployment._check_if_already_deployed(
             function_name=mm_constants.MonitoringFunctionNames.STREAM,
             project=project,
             auth_info=auth_info,
         )
+        if deployed:
+            return_dict = self._enable_monitoring_function(
+                project=project,
+                db_session=db_session,
+                auth_info=auth_info,
+                function_name=mm_constants.MonitoringFunctionNames.STREAM,
+            )
+            return {
+                "stream_data": return_dict.get("data"),
+                "stream_ready": return_dict.get("ready"),
+            }
         # Get parquet target value for model monitoring stream function
         parquet_target = (
             server.api.crud.model_monitoring.helpers.get_monitoring_parquet_path(
@@ -207,12 +438,23 @@ class MonitoringDeployment:
 
         :return: Model monitoring controller job as a runtime function.
         """
-        MonitoringDeployment._check_if_already_deployed(
+        deployed = MonitoringDeployment._check_if_already_deployed(
             function_name=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
             project=project,
             auth_info=auth_info,
             overwrite=overwrite,
         )
+        if deployed:
+            return_dict = self._enable_monitoring_function(
+                project=project,
+                db_session=db_session,
+                auth_info=auth_info,
+                function_name=mm_constants.MonitoringFunctionNames.STREAM,
+            )
+            return {
+                "controller_data": return_dict.get("data"),
+                "controller_ready": return_dict.get("ready"),
+            }
 
         fn = self._get_model_monitoring_batch_function(
             project=project,
@@ -393,11 +635,22 @@ class MonitoringDeployment:
                                             By default, the image is mlrun/mlrun.
         """
 
-        MonitoringDeployment._check_if_already_deployed(
+        deployed = MonitoringDeployment._check_if_already_deployed(
             function_name=mm_constants.MonitoringFunctionNames.WRITER,
             project=project,
             auth_info=auth_info,
         )
+        if deployed:
+            return_dict = self._enable_monitoring_function(
+                project=project,
+                db_session=db_session,
+                auth_info=auth_info,
+                function_name=mm_constants.MonitoringFunctionNames.WRITER,
+            )
+            return {
+                "writer_data": return_dict.get("data"),
+                "writer_ready": return_dict.get("ready"),
+            }
 
         fn = self._initial_model_monitoring_writer_function(
             project=project,
@@ -817,7 +1070,7 @@ class MonitoringDeployment:
     @staticmethod
     def _check_if_already_deployed(
         function_name, project, auth_info, overwrite=False
-    ) -> None:
+    ) -> bool:
         """
          If overwrite equal False the method check the desired function is all ready deployed
 
@@ -840,14 +1093,16 @@ class MonitoringDeployment:
                     tag="",
                     auth_info=auth_info,
                 )
+
                 logger.info(
                     f"Detected {function_name} function already deployed",
                     project=project,
                 )
-                return
+                return True
             except mlrun.errors.MLRunNotFoundError:
                 pass
         logger.info(f"Deploying {function_name} function", project=project)
+        return False
 
 
 def get_endpoint_features(

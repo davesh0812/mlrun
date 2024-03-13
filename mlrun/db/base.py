@@ -726,3 +726,13 @@ class RunDBInterface(ABC):
         image: str = "mlrun/mlrun",
     ):
         pass
+
+    def disable_model_monitoring(
+        self,
+        project: str,
+        disable_stream: bool = False,
+        disable_default_application: bool = False,
+        disable_user_applications: bool = False,
+        user_application_list: list[str] = None,
+    ):
+        pass

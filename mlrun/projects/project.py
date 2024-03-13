@@ -2002,6 +2002,7 @@ class MlrunProject(ModelObj):
         base_period: int = 10,
         image: str = "mlrun/mlrun",
         deploy_histogram_data_drift_app: bool = True,
+        wait_for_completion: bool = False,
     ) -> None:
         """
         Deploy model monitoring application controller, writer and stream functions.
@@ -2019,7 +2020,8 @@ class MlrunProject(ModelObj):
                                                 stream & histogram data drift functions, which are real time nuclio
                                                 functions. By default, the image is mlrun/mlrun.
         :param deploy_histogram_data_drift_app: If true, deploy the default histogram-based data drift application.
-
+        :param wait_for_completion:             If True waits for all the relevant process to be complete
+                                                else return without waiting. Default False.
         :returns: model monitoring controller job as a dictionary.
         """
         if default_controller_image != "mlrun/mlrun":
@@ -2047,11 +2049,16 @@ class MlrunProject(ModelObj):
                 image=image,
             )
             fn.deploy()
+        if wait_for_completion:
+            self._wait_for_mm_deploy_completion(
+                default_application=deploy_histogram_data_drift_app
+            )
 
     def update_model_monitoring_controller(
         self,
         base_period: int = 10,
         image: str = "mlrun/mlrun",
+        wait_for_completion: bool = False,
     ) -> None:
         """
         Redeploy model monitoring application controller functions.
@@ -2062,6 +2069,8 @@ class MlrunProject(ModelObj):
         :param image:                    The image of the model monitoring controller, writer & monitoring
                                          stream functions, which are real time nuclio functions.
                                          By default, the image is mlrun/mlrun.
+        :param wait_for_completion:      If True waits for all the relevant process to be complete
+                                         else return without waiting. Default False.
         :returns: model monitoring controller job as a dictionary.
         """
         db = mlrun.db.get_run_db(secrets=self._secrets)
@@ -2070,21 +2079,75 @@ class MlrunProject(ModelObj):
             base_period=base_period,
             image=image,
         )
+        if wait_for_completion:
+            self._wait_for_mm_deploy_completion()
 
-    def disable_model_monitoring(self):
+    def disable_model_monitoring(
+        self,
+        disable_stream: bool = False,
+        disable_default_application: bool = False,
+        disable_user_applications: bool = False,
+        user_application_list: list[str] = None,
+        wait_for_completion: bool = False,
+    ) -> None:
+        """
+        Disabled model monitoring application controller, writer, stream, default application and th user's applications
+        functions, according to the given params
+
+        :param disable_stream:              If True, it would disable model monitoring stream function,
+                                            need to use wisely because if you're disabling this function this can
+                                            cause data loss in case in the future you will want to enable
+                                            the model monitoring capability to the project. Default False.
+        :param disable_default_application: If True, it would disable the default histogram-based data drift
+                                            application. Default False.
+        :param disable_user_applications:   If True, it would disable the user's model monitoring application according
+                                            to user_application_list, Default False.
+        :param user_application_list:       List of the user's model monitoring application for disabling.
+                                            Default all the applications.
+        :param wait_for_completion:         If True waits for all the relevant process to be complete
+                                            else return without waiting. Default False.
+        """
         db = mlrun.db.get_run_db(secrets=self._secrets)
-        db.delete_function(
+        db.disable_model_monitoring(
             project=self.name,
-            name=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
+            disable_default_application=disable_default_application,
+            disable_stream=disable_stream,
+            disable_user_applications=disable_user_applications,
+            user_application_list=user_application_list,
         )
-        db.delete_function(
-            project=self.name,
-            name=mm_constants.MonitoringFunctionNames.WRITER,
+        if wait_for_completion:
+            if disable_user_applications:
+                if not user_application_list:
+                    monitoring_functions = self.list_model_monitoring_functions()
+                    if monitoring_functions:
+                        # Gets only application in ready state
+                        user_application_list = list(
+                            {app.metadata.name for app in monitoring_functions}
+                        )
+            self._wait_for_mm_deploy_completion(
+                default_application=disable_default_application,
+                user_application_list=user_application_list,
+            )
+
+    def _wait_for_mm_deploy_completion(
+        self, default_application: bool = False, user_application_list: list[str] = None
+    ):
+        functions_names = (
+            []
+            if not default_application
+            else [mm_constants.MLRUN_HISTOGRAM_DATA_DRIFT_APP_NAME]
+            + user_application_list
+            or []
         )
-        db.delete_function(
-            project=self.name,
-            name=mm_constants.MonitoringFunctionNames.STREAM,
-        )
+        for function_name in (
+            mm_constants.MonitoringFunctionNames.all() + functions_names
+        ):
+            function = self.get_function(
+                key=function_name,
+                ignore_cache=True,
+            )
+            db = function._get_db()
+            function._wait_for_function_deployment(db)
 
     def set_function(
         self,
