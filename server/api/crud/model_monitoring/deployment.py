@@ -136,21 +136,21 @@ class MonitoringDeployment:
         db_session: sqlalchemy.orm.Session,
         auth_info: mlrun.common.schemas.AuthInfo,
         disable_stream=False,
-        disable_default_application=False,
+        disable_histogram_data_drift_app=False,
     ) -> None:
         """
         Disabled model monitoring application controller, writer, stream and default application functions,
         according to the given params
 
-        :param project:                     Project name.
-        :param auth_info:                   The auth info of the request.
-        :param db_session:                  A session that manages the current dialog with the database.
-        :param disable_stream:              If True, it would disable model monitoring stream function,
-                                            need to use wisely because if you're disabling this function this can
-                                            cause data loss in case in the future you will want to enable
-                                            the model monitoring capability to the project. Default False.
-        :param disable_default_application: If True, it would disable the default histogram-based data drift
-                                            application. Default False.
+        :param project:                          Project name.
+        :param auth_info:                        The auth info of the request.
+        :param db_session:                       A session that manages the current dialog with the database.
+        :param disable_stream:                   If True, it would disable model monitoring stream function,
+                                                 need to use wisely because if you're disabling this function this can
+                                                 cause data loss in case in the future you will want to enable
+                                                 the model monitoring capability to the project. Default False.
+        :param disable_histogram_data_drift_app: If True, it would disable the default histogram-based data drift
+                                                 application. Default False.
         """
         for function_name in mm_constants.MonitoringFunctionNames.all():
             if (
@@ -164,7 +164,7 @@ class MonitoringDeployment:
                     auth_info=auth_info,
                     function_name=function_name,
                 )
-        if disable_default_application:
+        if disable_histogram_data_drift_app:
             self._disable_monitoring_function(
                 project=project,
                 db_session=db_session,
@@ -341,7 +341,7 @@ class MonitoringDeployment:
         else:
             logger.info(f"{function_name} is all ready enabled")
         return {
-            "data": fn.to_dict(),
+            "data": fn,
             "ready": ready,
         }
 

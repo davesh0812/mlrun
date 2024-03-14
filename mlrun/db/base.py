@@ -731,7 +731,7 @@ class RunDBInterface(ABC):
         self,
         project: str,
         disable_stream: bool = False,
-        disable_default_application: bool = False,
+        disable_histogram_data_drift_app: bool = False,
         disable_user_applications: bool = False,
         user_application_list: list[str] = None,
     ):

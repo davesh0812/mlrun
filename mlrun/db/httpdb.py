@@ -3136,29 +3136,29 @@ class HTTPRunDB(RunDBInterface):
         self,
         project: str,
         disable_stream: bool = False,
-        disable_default_application: bool = False,
+        disable_histogram_data_drift_app: bool = False,
         disable_user_applications: bool = False,
         user_application_list: list[str] = None,
     ):
         """
-        Disabled model monitoring application controller, writer, stream, default application and th user's applications
-        functions, according to the given params
+        Disabled model monitoring application controller, writer, stream, histogram data drift application
+        and the user's applications functions, according to the given params.
 
-        :param project:                     Project name.
-        :param disable_stream:              If True, it would disable model monitoring stream function,
-                                            need to use wisely because if you're disabling this function this can
-                                            cause data loss in case in the future you will want to enable
-                                            the model monitoring capability to the project. Default False.
-        :param disable_default_application: If True, it would disable the default histogram-based data drift
-                                            application. Default False.
-        :param disable_user_applications:   If True, it would disable the user's model monitoring application according
-                                            to user_application_list, Default False.
-        :param user_application_list:       List of the user's model monitoring application for disabling.
-                                            Default all the applications.
+        :param project:                          Project name.
+        :param disable_stream:                   If True, it would disable model monitoring stream function,
+                                                 need to use wisely because if you're disabling this function this can
+                                                 cause data loss in case in the future you will want to enable
+                                                 the model monitoring capability to the project. Default False.
+        :param disable_histogram_data_drift_app: If True, it would disable the default histogram-based data drift
+                                                 application. Default False.
+        :param disable_user_applications:        If True, it would disable the user's model monitoring application according
+                                                 to user_application_list, Default False.
+        :param user_application_list:            List of the user's model monitoring application for disabling.
+                                                 Default all the applications.
         """
         params = {
             "disable_stream": disable_stream,
-            "disable_default_application": disable_default_application,
+            "disable_histogram_data_drift_app": disable_histogram_data_drift_app,
             "disable_user_applications": disable_user_applications,
             "user_application_list": user_application_list,
         }

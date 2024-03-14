@@ -1998,7 +1998,6 @@ class MlrunProject(ModelObj):
 
     def enable_model_monitoring(
         self,
-        default_controller_image: str = "mlrun/mlrun",
         base_period: int = 10,
         image: str = "mlrun/mlrun",
         deploy_histogram_data_drift_app: bool = True,
@@ -2024,14 +2023,6 @@ class MlrunProject(ModelObj):
                                                 else return without waiting. Default False.
         :returns: model monitoring controller job as a dictionary.
         """
-        if default_controller_image != "mlrun/mlrun":
-            # TODO: Remove this in 1.9.0
-            warnings.warn(
-                "'default_controller_image' is deprecated and will be removed in 1.9.0, "
-                "use 'image' instead",
-                FutureWarning,
-            )
-            image = default_controller_image
         db = mlrun.db.get_run_db(secrets=self._secrets)
         db.enable_model_monitoring(
             project=self.name,
@@ -2051,7 +2042,7 @@ class MlrunProject(ModelObj):
             fn.deploy()
         if wait_for_completion:
             self._wait_for_mm_deploy_completion(
-                default_application=deploy_histogram_data_drift_app
+                histogram_data_drift_app=deploy_histogram_data_drift_app
             )
 
     def update_model_monitoring_controller(
@@ -2085,32 +2076,33 @@ class MlrunProject(ModelObj):
     def disable_model_monitoring(
         self,
         disable_stream: bool = False,
-        disable_default_application: bool = False,
+        disable_histogram_data_drift_app: bool = False,
         disable_user_applications: bool = False,
         user_application_list: list[str] = None,
         wait_for_completion: bool = False,
     ) -> None:
         """
-        Disabled model monitoring application controller, writer, stream, default application and th user's applications
-        functions, according to the given params
+        Disabled model monitoring application controller, writer, stream, histogram data drift application
+        and the user's applications functions, according to the given params.
 
-        :param disable_stream:              If True, it would disable model monitoring stream function,
-                                            need to use wisely because if you're disabling this function this can
-                                            cause data loss in case in the future you will want to enable
-                                            the model monitoring capability to the project. Default False.
-        :param disable_default_application: If True, it would disable the default histogram-based data drift
-                                            application. Default False.
-        :param disable_user_applications:   If True, it would disable the user's model monitoring application according
-                                            to user_application_list, Default False.
-        :param user_application_list:       List of the user's model monitoring application for disabling.
-                                            Default all the applications.
-        :param wait_for_completion:         If True waits for all the relevant process to be complete
-                                            else return without waiting. Default False.
+        :param disable_stream:                      If True, it would disable model monitoring stream function,
+                                                    need to use wisely because if you're disabling this function
+                                                    this can cause data loss in case in the future you will want to
+                                                    enable the model monitoring capability to the project.
+                                                    Default False.
+        :param disable_histogram_data_drift_app:    If True, it would disable the default histogram-based data drift
+                                                    application. Default False.
+        :param disable_user_applications:           If True, it would disable the user's model monitoring
+                                                    application according to user_application_list, Default False.
+        :param user_application_list:               List of the user's model monitoring application for disabling.
+                                                    Default all the applications.
+        :param wait_for_completion:                 If True waits for all the relevant process to be complete
+                                                    else return without waiting. Default False.
         """
         db = mlrun.db.get_run_db(secrets=self._secrets)
         db.disable_model_monitoring(
             project=self.name,
-            disable_default_application=disable_default_application,
+            disable_histogram_data_drift_app=disable_histogram_data_drift_app,
             disable_stream=disable_stream,
             disable_user_applications=disable_user_applications,
             user_application_list=user_application_list,
@@ -2125,16 +2117,24 @@ class MlrunProject(ModelObj):
                             {app.metadata.name for app in monitoring_functions}
                         )
             self._wait_for_mm_deploy_completion(
-                default_application=disable_default_application,
+                histogram_data_drift_app=disable_histogram_data_drift_app,
                 user_application_list=user_application_list,
             )
 
     def _wait_for_mm_deploy_completion(
-        self, default_application: bool = False, user_application_list: list[str] = None
-    ):
+        self,
+        histogram_data_drift_app: bool = False,
+        user_application_list: list[str] = None,
+    ) -> None:
+        """
+        This method waits until all the model monitoring fun
+        :param histogram_data_drift_app:
+        :param user_application_list:
+        :return:
+        """
         functions_names = (
             []
-            if not default_application
+            if not histogram_data_drift_app
             else [mm_constants.MLRUN_HISTOGRAM_DATA_DRIFT_APP_NAME]
             + user_application_list
             or []
@@ -2142,12 +2142,15 @@ class MlrunProject(ModelObj):
         for function_name in (
             mm_constants.MonitoringFunctionNames.all() + functions_names
         ):
-            function = self.get_function(
-                key=function_name,
-                ignore_cache=True,
-            )
+            try:
+                function = self.get_function(
+                    key=function_name,
+                    ignore_cache=True,
+                )
+            except mlrun.errors.MLRunNotFoundError:
+                logger.info(f"{function_name} function no found")
             db = function._get_db()
-            function._wait_for_function_deployment(db)
+            function._wait_for_function_deployment(db, verbose=False)
 
     def set_function(
         self,

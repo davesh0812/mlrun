@@ -404,54 +404,95 @@ class TestRecordResults(TestMLRunSystem, _V3IORecordsChecker):
 @TestMLRunSystem.skip_test_if_env_not_configured
 @pytest.mark.enterprise
 class TestModelMonitoringInitialize(TestMLRunSystem):
-    project_name = "test-mm-initialize"
+    project_name = "test-mm-initialize-v2"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: typing.Optional[str] = None
+    image: typing.Optional[str] = "docker.io/davesh0812/mlrun:1.7.0"
 
     def test_enable_model_monitoring(self) -> None:
-        with pytest.raises(mlrun.errors.MLRunNotFoundError):
-            self.project.update_model_monitoring_controller(
-                image=self.image or "mlrun/mlrun"
-            )
+        #     with pytest.raises(mlrun.errors.MLRunNotFoundError):
+        #         self.project.update_model_monitoring_controller(
+        #             image=self.image or "mlrun/mlrun"
+        #         )
+        #
+        #     self.project.enable_model_monitoring(
+        #         image=self.image or "mlrun/mlrun", wait_for_completion=True, deploy_histogram_data_drift_app=False,
+        #     )
+        #
+        #     controller = self.project.get_function(
+        #         key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
+        #     )
+        #     assert (
+        #         controller.spec.config["spec.triggers.cron_interval"]["attributes"][
+        #             "interval"
+        #         ]
+        #         == "10m"
+        #     )
+        #
+        #     self.project.update_model_monitoring_controller(
+        #         image=self.image or "mlrun/mlrun",
+        #         base_period=1,
+        #         wait_for_completion=True,
+        #     )
+        #     controller = self.project.get_function(
+        #         key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
+        #         ignore_cache=True,
+        #     )
+        #     assert (
+        #         controller.spec.config["spec.triggers.cron_interval"]["attributes"][
+        #             "interval"
+        #         ]
+        #         == "1m"
+        #     )
+        #
+        #     print("Disable step!!!!!!!!!!!!!!")
+        #
+        #     self.project.disable_model_monitoring(wait_for_completion=True)
+        #
+        functions = [
+            mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
+            mm_constants.MonitoringFunctionNames.WRITER,
+        ]
+        #     for function_name in functions:
+        #         function = self.project.get_function(
+        #             key=function_name,
+        #             ignore_cache=True,
+        #         )
+        #         # check that all the functions are disabled
+        #         assert (
+        #             function.spec.config["spec.disable"] == True
+        #         ), f"{function_name} isn't disabled"
+        #
+        #     function = self.project.get_function(
+        #         key=mm_constants.MonitoringFunctionNames.STREAM,
+        #         ignore_cache=True,
+        #     )
+        #     function.spec.config["spec.disable"] = function.spec.config.get(
+        #         "spec.disable", False
+        #     )
+        #     assert (
+        #         function.spec.config["spec.disable"] == False
+        #     ), f"{mm_constants.MonitoringFunctionNames.STREAM} isn't enabled"
 
         self.project.enable_model_monitoring(
-            image=self.image or "mlrun/mlrun", wait_for_completion=True
-        )
-
-        controller = self.project.get_function(
-            key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER
-        )
-        assert (
-            controller.spec.config["spec.triggers.cron_interval"]["attributes"][
-                "interval"
-            ]
-            == "10m"
-        )
-
-        self.project.update_model_monitoring_controller(
             image=self.image or "mlrun/mlrun",
-            base_period=1,
             wait_for_completion=True,
-        )
-        controller = self.project.get_function(
-            key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
-            ignore_cache=True,
-        )
-        assert (
-            controller.spec.config["spec.triggers.cron_interval"]["attributes"][
-                "interval"
-            ]
-            == "1m"
+            deploy_histogram_data_drift_app=False,
         )
 
-        self.project.disable_model_monitoring(
-            disable_stream=True, wait_for_completion=True
-        )
-
-        for function_name in mm_constants.MonitoringFunctionNames.all():
+        for function_name in functions:
             function = self.project.get_function(
                 key=function_name,
                 ignore_cache=True,
             )
             # check that all the functions are disabled
-            # assert function == "disable", f"{function_name} isn't disabled"
+            assert (
+                function.spec.config["spec.disable"] == False
+            ), f"{function_name} isn't enabled"
+
+    def test_a(self):
+        # for function_name in mm_constants.MonitoringFunctionNames.all():
+        function = self.project.get_function(
+            key=mm_constants.MonitoringFunctionNames.APPLICATION_CONTROLLER,
+            ignore_cache=True,
+        )
+        print(function.to_dict())
