@@ -3102,11 +3102,13 @@ class HTTPRunDB(RunDBInterface):
         path = f"projects/{project}/model-monitoring/model-monitoring-controller"
         self.api_call(method="POST", path=path, params=params)
 
-    def enable_model_monitoring(
+    def deploy_model_monitoring_resources(
         self,
         project: str,
         base_period: int = 10,
         image: str = "mlrun/mlrun",
+        deploy_user_applications: bool = False,
+        user_application_list: list[str] = None,
     ):
         """
         Deploy model monitoring application controller, writer and stream functions.
@@ -3116,18 +3118,56 @@ class HTTPRunDB(RunDBInterface):
         The stream function goal is to monitor the log of the data stream. It is triggered when a new log entry
         is detected. It processes the new events into statistics that are then written to statistics databases.
 
-
-        :param project:                  Project name.
-        :param base_period:              The time period in minutes in which the model monitoring controller function
-                                         triggers. By default, the base period is 10 minutes.
-        :param image:                    The image of the model monitoring controller, writer & monitoring
-                                         stream functions, which are real time nuclio functions.
-                                         By default, the image is mlrun/mlrun.
+        :param project:                         Project name.
+        :param base_period:                     The time period in minutes in which the model monitoring controller
+                                                function is triggered. By default, the base period is 10 minutes.
+        :param image:                           The image of the model monitoring controller, writer, monitoring
+                                                stream & histogram data drift functions, which are real time nuclio
+                                                functions. By default, the image is mlrun/mlrun.
+        :param deploy_user_applications:        If True, it would deploy all the model monitoring application that
+                                                the user already set to the project or only the user_application_list
+                                                if those apps there set already, Default False.
+        :param user_application_list:           List of the user's model monitoring application to deploy.
+                                                Default all the applications.
+        :returns: model monitoring controller job as a dictionary.
         """
 
         params = {
             "base_period": base_period,
             "image": image,
+            "deploy_user_applications": deploy_user_applications,
+            "user_application_list": user_application_list,
+        }
+        path = f"projects/{project}/model-monitoring/deploy-model-monitoring-resources"
+        self.api_call(method="POST", path=path, params=params)
+
+    def enable_model_monitoring(
+        self,
+        project: str,
+        enable_resources: bool = True,
+        enable_histogram_data_drift_app: bool = False,
+        enable_user_applications: bool = False,
+        user_application_list: list[str] = None,
+    ):
+        """
+        Enabled model monitoring application controller, writer, stream, histogram data drift application
+        and the user's applications functions, according to the given params.
+
+        :param project:                             Project name.
+        :param enable_resources:                    If True, it would enable the all the model monitoring resources.
+                                                    Default True.
+        :param enable_histogram_data_drift_app:     If True, it would enable the default histogram-based data drift
+                                                    application. Default False.
+        :param enable_user_applications:            If True, it would enable the user's model monitoring
+                                                    application according to user_application_list, Default False.
+        :param user_application_list:               List of the user's model monitoring application to enable.
+                                                    Default all the applications.
+        """
+        params = {
+            "enable_resources": enable_resources,
+            "enable_histogram_data_drift_app": enable_histogram_data_drift_app,
+            "enable_user_applications": enable_user_applications,
+            "user_application_list": user_application_list,
         }
         path = f"projects/{project}/model-monitoring/enable-model-monitoring"
         self.api_call(method="POST", path=path, params=params)
@@ -3135,6 +3175,7 @@ class HTTPRunDB(RunDBInterface):
     def disable_model_monitoring(
         self,
         project: str,
+        disable_resources: bool = True,
         disable_stream: bool = False,
         disable_histogram_data_drift_app: bool = False,
         disable_user_applications: bool = False,
@@ -3144,19 +3185,23 @@ class HTTPRunDB(RunDBInterface):
         Disabled model monitoring application controller, writer, stream, histogram data drift application
         and the user's applications functions, according to the given params.
 
-        :param project:                          Project name.
-        :param disable_stream:                   If True, it would disable model monitoring stream function,
-                                                 need to use wisely because if you're disabling this function this can
-                                                 cause data loss in case in the future you will want to enable
-                                                 the model monitoring capability to the project. Default False.
-        :param disable_histogram_data_drift_app: If True, it would disable the default histogram-based data drift
-                                                 application. Default False.
-        :param disable_user_applications:        If True, it would disable the user's model monitoring application according
-                                                 to user_application_list, Default False.
-        :param user_application_list:            List of the user's model monitoring application for disabling.
-                                                 Default all the applications.
+        :param project:                             Project name.
+        :param disable_resources                    If True, it would disable the model monitoring controller & writer
+                                                    functions.Default True
+        :param disable_stream:                      If True, it would disable model monitoring stream function,
+                                                    need to use wisely because if you're disabling this function
+                                                    this can cause data loss in case in the future you will want to
+                                                    enable the model monitoring capability to the project.
+                                                    Default False.
+        :param disable_histogram_data_drift_app:    If True, it would disable the default histogram-based data drift
+                                                    application. Default False.
+        :param disable_user_applications:           If True, it would disable the user's model monitoring
+                                                    application according to user_application_list, Default False.
+        :param user_application_list:               List of the user's model monitoring application to disable.
+                                                    Default all the applications.
         """
         params = {
+            "disable_resources": disable_resources,
             "disable_stream": disable_stream,
             "disable_histogram_data_drift_app": disable_histogram_data_drift_app,
             "disable_user_applications": disable_user_applications,

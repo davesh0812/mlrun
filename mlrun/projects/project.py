@@ -1996,11 +1996,13 @@ class MlrunProject(ModelObj):
 
         return resolved_function_name, function_object, func
 
-    def enable_model_monitoring(
+    def deploy_model_monitoring_resources(
         self,
         base_period: int = 10,
         image: str = "mlrun/mlrun",
         deploy_histogram_data_drift_app: bool = True,
+        deploy_user_applications: bool = False,
+        user_application_list: list[str] = None,
         wait_for_completion: bool = False,
     ) -> None:
         """
@@ -2011,23 +2013,28 @@ class MlrunProject(ModelObj):
         The stream function goal is to monitor the log of the data stream. It is triggered when a new log entry
         is detected. It processes the new events into statistics that are then written to statistics databases.
 
-
-        :param default_controller_image:        Deprecated.
         :param base_period:                     The time period in minutes in which the model monitoring controller
                                                 function is triggered. By default, the base period is 10 minutes.
         :param image:                           The image of the model monitoring controller, writer, monitoring
                                                 stream & histogram data drift functions, which are real time nuclio
                                                 functions. By default, the image is mlrun/mlrun.
         :param deploy_histogram_data_drift_app: If true, deploy the default histogram-based data drift application.
+        :param deploy_user_applications:        If True, it would deploy all the model monitoring application that
+                                                the user already set to the project or only the user_application_list
+                                                if those apps there set already, Default False.
+        :param user_application_list:           List of the user's model monitoring application to deploy.
+                                                Default all the applications.
         :param wait_for_completion:             If True waits for all the relevant process to be complete
                                                 else return without waiting. Default False.
         :returns: model monitoring controller job as a dictionary.
         """
         db = mlrun.db.get_run_db(secrets=self._secrets)
-        db.enable_model_monitoring(
+        db.deploy_model_monitoring_resources(
             project=self.name,
             image=image,
             base_period=base_period,
+            deploy_user_applications=deploy_user_applications,
+            user_application_list=user_application_list,
         )
         if deploy_histogram_data_drift_app:
             fn = self.set_model_monitoring_function(
@@ -2042,7 +2049,9 @@ class MlrunProject(ModelObj):
             fn.deploy()
         if wait_for_completion:
             self._wait_for_mm_deploy_completion(
-                histogram_data_drift_app=deploy_histogram_data_drift_app
+                histogram_data_drift_app=deploy_histogram_data_drift_app,
+                user_applications=deploy_user_applications,
+                user_application_list=user_application_list,
             )
 
     def update_model_monitoring_controller(
@@ -2073,8 +2082,47 @@ class MlrunProject(ModelObj):
         if wait_for_completion:
             self._wait_for_mm_deploy_completion()
 
+    def enable_model_monitoring(
+        self,
+        enable_resources: bool = True,
+        enable_histogram_data_drift_app: bool = False,
+        enable_user_applications: bool = False,
+        user_application_list: list[str] = None,
+        wait_for_completion: bool = False,
+    ) -> None:
+        """
+        Enabled model monitoring application controller, writer, stream, histogram data drift application
+        and the user's applications functions, according to the given params.
+
+        :param enable_resources:                    If True, it would enable the all the model monitoring resources.
+                                                    Default True.
+        :param enable_histogram_data_drift_app:     If True, it would enable the default histogram-based data drift
+                                                    application. Default False.
+        :param enable_user_applications:            If True, it would enable the user's model monitoring
+                                                    application according to user_application_list, Default False.
+        :param user_application_list:               List of the user's model monitoring application to enable.
+                                                    Default all the applications.
+        :param wait_for_completion:                 If True waits for all the relevant process to be complete
+                                                    else return without waiting. Default False.
+        """
+        db = mlrun.db.get_run_db(secrets=self._secrets)
+        db.enable_model_monitoring(
+            project=self.name,
+            enable_resources=enable_resources,
+            enable_histogram_data_drift_app=enable_histogram_data_drift_app,
+            enable_user_applications=enable_user_applications,
+            user_application_list=user_application_list,
+        )
+        if wait_for_completion:
+            self._wait_for_mm_deploy_completion(
+                monitoring_resources=enable_resources,
+                histogram_data_drift_app=enable_histogram_data_drift_app,
+                user_application_list=user_application_list,
+            )
+
     def disable_model_monitoring(
         self,
+        disable_resources: bool = True,
         disable_stream: bool = False,
         disable_histogram_data_drift_app: bool = False,
         disable_user_applications: bool = False,
@@ -2085,6 +2133,8 @@ class MlrunProject(ModelObj):
         Disabled model monitoring application controller, writer, stream, histogram data drift application
         and the user's applications functions, according to the given params.
 
+        :param disable_resources                    If True, it would disable the model monitoring controller & writer
+                                                    functions.Default True
         :param disable_stream:                      If True, it would disable model monitoring stream function,
                                                     need to use wisely because if you're disabling this function
                                                     this can cause data loss in case in the future you will want to
@@ -2094,7 +2144,7 @@ class MlrunProject(ModelObj):
                                                     application. Default False.
         :param disable_user_applications:           If True, it would disable the user's model monitoring
                                                     application according to user_application_list, Default False.
-        :param user_application_list:               List of the user's model monitoring application for disabling.
+        :param user_application_list:               List of the user's model monitoring application to disable.
                                                     Default all the applications.
         :param wait_for_completion:                 If True waits for all the relevant process to be complete
                                                     else return without waiting. Default False.
@@ -2102,36 +2152,42 @@ class MlrunProject(ModelObj):
         db = mlrun.db.get_run_db(secrets=self._secrets)
         db.disable_model_monitoring(
             project=self.name,
+            disable_resources=disable_resources,
             disable_histogram_data_drift_app=disable_histogram_data_drift_app,
             disable_stream=disable_stream,
             disable_user_applications=disable_user_applications,
             user_application_list=user_application_list,
         )
         if wait_for_completion:
-            if disable_user_applications:
-                if not user_application_list:
-                    monitoring_functions = self.list_model_monitoring_functions()
-                    if monitoring_functions:
-                        # Gets only application in ready state
-                        user_application_list = list(
-                            {app.metadata.name for app in monitoring_functions}
-                        )
             self._wait_for_mm_deploy_completion(
+                monitoring_resources=disable_resources,
                 histogram_data_drift_app=disable_histogram_data_drift_app,
+                user_applications=disable_user_applications,
                 user_application_list=user_application_list,
             )
 
     def _wait_for_mm_deploy_completion(
         self,
+        monitoring_resources: bool = True,
         histogram_data_drift_app: bool = False,
+        user_applications: bool = False,
         user_application_list: list[str] = None,
     ) -> None:
         """
         This method waits until all the model monitoring fun
-        :param histogram_data_drift_app:
-        :param user_application_list:
-        :return:
+
+        :param monitoring_resources:     If True waits for all monitoring resources to be ready. Default True.
+        :param histogram_data_drift_app: If True waits for histogram data drift app to be ready. Default False.
+        :param user_applications:        If True waits for all mm users applications app to be ready. Default False.
+        :param user_application_list:    List of the user's model monitoring application for disabling.
         """
+        if user_applications:
+            if not user_application_list:
+                monitoring_functions = self.list_model_monitoring_functions()
+                if monitoring_functions:
+                    user_application_list = list(
+                        {app.metadata.name for app in monitoring_functions}
+                    )
         functions_names = (
             []
             if not histogram_data_drift_app
@@ -2139,15 +2195,16 @@ class MlrunProject(ModelObj):
             + user_application_list
             or []
         )
-        for function_name in (
-            mm_constants.MonitoringFunctionNames.all() + functions_names
-        ):
+        if monitoring_resources:
+            functions_names += mm_constants.MonitoringFunctionNames.all()
+        for function_name in functions_names:
             try:
                 function = self.get_function(
                     key=function_name,
                     ignore_cache=True,
                 )
             except mlrun.errors.MLRunNotFoundError:
+                # TODO : delete when batch is deprecated
                 logger.info(f"{function_name} function no found")
             db = function._get_db()
             function._wait_for_function_deployment(db, verbose=False)
@@ -3964,3 +4021,28 @@ def _has_module(handler, kind):
 
 def _is_imported_artifact(artifact):
     return artifact and isinstance(artifact, dict) and "import_from" in artifact
+
+
+#
+#
+# ## SDK & API (all the functionality written only in the api)
+# 1. `deploy_model_monitoring_resources()` - X
+#    1. deploy controller, stream & writer functions with configurable image and base period.
+#    2. deploy default application (flag = True)
+#    3. deploy all the mm application the user already set (flag)
+#    4. config & create all relevant stream and dbs
+# 3. `enable_model_monitoring()` - V
+#    Can be run only after the deployment func, and will redeploy only the disabled functions.
+#    1. enable the controller (set start time-?), stream & writer functions.
+#    2. enable default application (flag)
+#    3. enable all the mm application the user already deployed (flag + list)
+# 4. `disable_model_monitoring()` - V
+#    Can be run only after the deployment func.
+#    1. disable the controller, writer.
+#    2. disable stream (flag)
+#    3. disable default application (flag)
+#    4. disable all the mm application the user already deployed (flag + list)
+# 5. `enable_model_monitoring_functions()` - by function name - X
+# 6. `disable_model_monitoring_functions()` - by function name - X
+# 7. `update_model_monitoring_controller()` - V
+#    deploy controller with configurable image-? and base period.

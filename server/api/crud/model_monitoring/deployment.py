@@ -72,7 +72,7 @@ class MonitoringDeployment:
                                             offset by the scheduled batch job.
         """
 
-    def deploy_monitoring_functions(
+    def deploy_monitoring_resources(
         self,
         project: str,
         model_monitoring_access_key: str,
@@ -80,7 +80,7 @@ class MonitoringDeployment:
         auth_info: mlrun.common.schemas.AuthInfo,
         base_period: int = 10,
         image: str = "mlrun/mlrun",
-    ):
+    ) -> list[dict]:
         """
         Deploy model monitoring application controller, writer and stream functions.
 
@@ -103,7 +103,7 @@ class MonitoringDeployment:
             base_period=base_period,
         )
 
-        writer_dict = self.deploy_model_monitoring_writer_application(
+        writer_dict = self._deploy_model_monitoring_writer_application(
             project=project,
             model_monitoring_access_key=model_monitoring_access_key,
             db_session=db_session,
@@ -111,33 +111,62 @@ class MonitoringDeployment:
             writer_image=image,
         )
 
-        stream_dict = self.deploy_model_monitoring_stream_processing(
+        stream_dict = self._deploy_model_monitoring_stream_processing(
             project=project,
             model_monitoring_access_key=model_monitoring_access_key,
             db_session=db_session,
             auth_info=auth_info,
             stream_image=image,
         )
-        self.enable_monitoring_user_functions(
-            project=project,
-            db_session=db_session,
-            auth_info=auth_info,
-        )
 
-        return {
-            k: v
-            for d in [controller_dict, writer_dict, stream_dict]
-            for k, v in d.items()
-        }
+        return [controller_dict, stream_dict, writer_dict]
 
-    def disable_monitoring_server_functions(
+    def enable_monitoring_resources(
+        self,
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        enable_histogram_data_drift_app=False,
+    ) -> list[dict]:
+        """
+        Enabled model monitoring application controller, writer, stream and default application functions,
+        according to the given params
+
+        :param project:                          Project name.
+        :param auth_info:                        The auth info of the request.
+        :param db_session:                       A session that manages the current dialog with the database.
+        :param enable_histogram_data_drift_app:  If True, it would enable the default histogram-based data drift
+                                                 application. Default False.
+        """
+        result_list = []
+        for function_name in mm_constants.MonitoringFunctionNames.all():
+            result_list.append(
+                self._enable_monitoring_function(
+                    project=project,
+                    db_session=db_session,
+                    auth_info=auth_info,
+                    function_name=function_name,
+                )
+            )
+        if enable_histogram_data_drift_app:
+            result_list.append(
+                self._enable_monitoring_function(
+                    project=project,
+                    db_session=db_session,
+                    auth_info=auth_info,
+                    function_name=mm_constants.MLRUN_HISTOGRAM_DATA_DRIFT_APP_NAME,
+                )
+            )
+        return result_list
+
+    def disable_monitoring_resources(
         self,
         project: str,
         db_session: sqlalchemy.orm.Session,
         auth_info: mlrun.common.schemas.AuthInfo,
         disable_stream=False,
         disable_histogram_data_drift_app=False,
-    ) -> None:
+    ) -> list[dict]:
         """
         Disabled model monitoring application controller, writer, stream and default application functions,
         according to the given params
@@ -152,63 +181,64 @@ class MonitoringDeployment:
         :param disable_histogram_data_drift_app: If True, it would disable the default histogram-based data drift
                                                  application. Default False.
         """
+        result_list = []
         for function_name in mm_constants.MonitoringFunctionNames.all():
             if (
                 function_name == mm_constants.MonitoringFunctionNames.STREAM
                 and disable_stream
                 or function_name != mm_constants.MonitoringFunctionNames.STREAM
             ):
+                result_list.append(
+                    self._disable_monitoring_function(
+                        project=project,
+                        db_session=db_session,
+                        auth_info=auth_info,
+                        function_name=function_name,
+                    )
+                )
+        if disable_histogram_data_drift_app:
+            result_list.append(
                 self._disable_monitoring_function(
                     project=project,
                     db_session=db_session,
                     auth_info=auth_info,
-                    function_name=function_name,
+                    function_name=mm_constants.MLRUN_HISTOGRAM_DATA_DRIFT_APP_NAME,
                 )
-        if disable_histogram_data_drift_app:
-            self._disable_monitoring_function(
-                project=project,
-                db_session=db_session,
-                auth_info=auth_info,
-                function_name=mm_constants.MLRUN_HISTOGRAM_DATA_DRIFT_APP_NAME,
             )
+        return result_list
 
-    def disable_monitoring_user_functions(
+    def deploy_monitoring_user_functions(
         self,
         project: str,
         db_session: sqlalchemy.orm.Session,
         auth_info: mlrun.common.schemas.AuthInfo,
         function_names: list[str] = None,
-    ) -> None:
+    ) -> list[dict]:
         """
-        Disabled model monitoring application controller, writer, stream  and default application functions,
-        according to the given params
+        Deploy model monitoring user's applications functions that there already been set to the project,
+        according to the given params.
 
         :param project:                     Project name.
         :param auth_info:                   The auth info of the request.
         :param db_session:                  A session that manages the current dialog with the database.
-        :param function_names:              List of the user's model monitoring application for disabling.
+        :param function_names:              List of the user's model monitoring application for deploy.
                                             Default all the applications.
-        """
-        model_monitoring_labels_list = [
-            f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
-        ]
-        function_names = (
-            function_names
-            or server.api.crud.Functions().list_functions(
-                db_session=db_session,
-                project=project,
-                labels=model_monitoring_labels_list,
-            )
-            or []
-        )
 
+        """
+        result_list = []
+        function_names = function_names or self.list_model_monitoring_functions(
+            project=project, db_session=db_session
+        )
         for function_name in function_names:
-            self._disable_monitoring_function(
-                project=project,
-                db_session=db_session,
-                auth_info=auth_info,
-                function_name=function_name,
+            result_list.append(
+                self._deploy_monitoring_function(
+                    project=project,
+                    db_session=db_session,
+                    auth_info=auth_info,
+                    function_name=function_name,
+                )
             )
+        return result_list
 
     def enable_monitoring_user_functions(
         self,
@@ -216,9 +246,9 @@ class MonitoringDeployment:
         db_session: sqlalchemy.orm.Session,
         auth_info: mlrun.common.schemas.AuthInfo,
         function_names: list[str] = None,
-    ):
+    ) -> list[dict]:
         """
-        Disabled model monitoring user's applications functions, according to the given params
+        Enabled model monitoring user's applications functions, according to the given params.
 
         :param project:                     Project name.
         :param auth_info:                   The auth info of the request.
@@ -227,26 +257,51 @@ class MonitoringDeployment:
                                             Default all the applications.
 
         """
-        model_monitoring_labels_list = [
-            f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
-        ]
-        function_names = (
-            function_names
-            or server.api.crud.Functions().list_functions(
-                db_session=db_session,
-                project=project,
-                labels=model_monitoring_labels_list,
-            )
-            or []
+        result_list = []
+        function_names = function_names or self.list_model_monitoring_functions(
+            project=project, db_session=db_session
         )
-
         for function_name in function_names:
-            self._enable_monitoring_function(
-                project=project,
-                db_session=db_session,
-                auth_info=auth_info,
-                function_name=function_name,
+            result_list.append(
+                self._enable_monitoring_function(
+                    project=project,
+                    db_session=db_session,
+                    auth_info=auth_info,
+                    function_name=function_name,
+                )
             )
+        return result_list
+
+    def disable_monitoring_user_functions(
+        self,
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        function_names: list[str] = None,
+    ) -> list[dict]:
+        """
+        Disabled model monitoring user's applications functions, according to the given params.
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param function_names:              List of the user's model monitoring application for disabling.
+                                            Default all the applications.
+        """
+        result_list = []
+        function_names = function_names or self.list_model_monitoring_functions(
+            project=project, db_session=db_session
+        )
+        for function_name in function_names:
+            result_list.append(
+                self._disable_monitoring_function(
+                    project=project,
+                    db_session=db_session,
+                    auth_info=auth_info,
+                    function_name=function_name,
+                )
+            )
+        return result_list
 
     @staticmethod
     def _disable_monitoring_function(
@@ -262,7 +317,6 @@ class MonitoringDeployment:
         :param auth_info:                   The auth info of the request.
         :param db_session:                  A session that manages the current dialog with the database.
         :param function_name:               The name of the function to disable.
-        :return:
         """
         try:
             fn = server.api.crud.Functions().get_function(
@@ -293,8 +347,8 @@ class MonitoringDeployment:
             logger.info(f"{function_name} is all ready disabled")
 
         return {
-            "data": fn.to_dict(),
-            "ready": ready,
+            f"{function_name}_data": fn.to_dict(),
+            f"{function_name}_ready": ready,
         }
 
     @staticmethod
@@ -303,7 +357,7 @@ class MonitoringDeployment:
         db_session: sqlalchemy.orm.Session,
         auth_info: mlrun.common.schemas.AuthInfo,
         function_name: str,
-    ):
+    ) -> dict:
         """
         Enabled the desired function.
 
@@ -311,7 +365,6 @@ class MonitoringDeployment:
         :param auth_info:                   The auth info of the request.
         :param db_session:                  A session that manages the current dialog with the database.
         :param function_name:               The name of the function to enable.
-        :return:
         """
         try:
             fn = server.api.crud.Functions().get_function(
@@ -341,11 +394,67 @@ class MonitoringDeployment:
         else:
             logger.info(f"{function_name} is all ready enabled")
         return {
-            "data": fn,
-            "ready": ready,
+            f"{function_name}_data": fn,
+            f"{function_name}_ready": ready,
         }
 
-    def deploy_model_monitoring_stream_processing(
+    @staticmethod
+    def _deploy_monitoring_function(
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+        auth_info: mlrun.common.schemas.AuthInfo,
+        function_name: str,
+    ) -> dict:
+        """
+        Enabled the desired function.
+
+        :param project:                     Project name.
+        :param auth_info:                   The auth info of the request.
+        :param db_session:                  A session that manages the current dialog with the database.
+        :param function_name:               The name of the function to enable.
+        """
+        try:
+            fn = server.api.crud.Functions().get_function(
+                db_session=db_session,
+                name=function_name,
+                project=project,
+            )
+
+        except mlrun.errors.MLRunNotFoundError:
+            logger.info(
+                f"{function_name} is not found ",
+                project=project,
+            )
+            return
+        logger.info(
+            f"Deploying {function_name.replace('-', ' ')} function ",
+            project=project,
+        )
+        fn, ready = server.api.api.endpoints.functions._build_function(
+            db_session=db_session,
+            auth_info=auth_info,
+            function=fn,
+        )
+        return {
+            f"{function_name}_data": fn,
+            f"{function_name}_ready": ready,
+        }
+
+    @staticmethod
+    def list_model_monitoring_functions(
+        project: str,
+        db_session: sqlalchemy.orm.Session,
+    ) -> list:
+        model_monitoring_labels_list = [
+            f"{mm_constants.ModelMonitoringAppLabel.KEY}={mm_constants.ModelMonitoringAppLabel.VAL}"
+        ]
+        return server.api.crud.Functions().list_functions(
+            db_session=db_session,
+            project=project,
+            labels=model_monitoring_labels_list,
+        )
+
+    def _deploy_model_monitoring_stream_processing(
         self,
         project: str,
         model_monitoring_access_key: str,
@@ -614,7 +723,7 @@ class MonitoringDeployment:
                     )
         return fn
 
-    def deploy_model_monitoring_writer_application(
+    def _deploy_model_monitoring_writer_application(
         self,
         project: str,
         model_monitoring_access_key: str,

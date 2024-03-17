@@ -719,17 +719,30 @@ class RunDBInterface(ABC):
     ):
         pass
 
-    def enable_model_monitoring(
+    def deploy_model_monitoring_resources(
         self,
         project: str,
         base_period: int = 10,
         image: str = "mlrun/mlrun",
+        deploy_user_applications: bool = False,
+        user_application_list: list[str] = None,
+    ):
+        pass
+
+    def enable_model_monitoring(
+        self,
+        project: str,
+        enable_resources: bool = True,
+        enable_histogram_data_drift_app: bool = False,
+        enable_user_applications: bool = False,
+        user_application_list: list[str] = None,
     ):
         pass
 
     def disable_model_monitoring(
         self,
         project: str,
+        disable_resources: bool = True,
         disable_stream: bool = False,
         disable_histogram_data_drift_app: bool = False,
         disable_user_applications: bool = False,
