@@ -26,6 +26,8 @@ from .constants import (
     FunctionURI,
     MetricData,
     ModelEndpointMonitoringMetricType,
+    ModelEndpointSchema,
+    ModelEndpointState,
     ModelEndpointTarget,
     ModelEndpointTargetSchemas,
     ModelMonitoringMode,
@@ -53,6 +55,12 @@ from .grafana import (
     GrafanaStringColumn,
     GrafanaTable,
     GrafanaTimeSeriesTarget,
+)
+from .model_endpoint_v2 import (
+    ModelEndpointV2,
+    ModelEndpointV2Metadata,
+    ModelEndpointV2Spec,
+    ModelEndpointV2Status,
 )
 from .model_endpoints import (
     Features,

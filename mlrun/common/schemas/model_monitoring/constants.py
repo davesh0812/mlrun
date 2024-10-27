@@ -29,6 +29,38 @@ class MonitoringStrEnum(StrEnum):
         return list(map(lambda c: c.value, cls))
 
 
+class ModelEndpointSchema(MonitoringStrEnum):
+    UID = "uid"
+    PROJECT = "project"
+    FUNCTION_URI = "function_uri"
+    FUNCTION_NAME = "function_name"
+    MODEL_NAME = "model_name"
+    MODEL_TAG = "model_tag"
+    MODEL_CLASS = "model_class"
+    LABELS = "labels"
+    MODEL_URI = "model_uri"
+    ENDPOINT_TYPE = "endpoint_type"
+    STATE = "state"
+    MONITORING_MODE = "monitoring_mode"
+    MONITORING_FEATURE_SET_URI = "monitoring_feature_set_uri"
+    CHILDREN = "children"
+    CHILDREN_UIDS = "children_uids"
+    NAME = "name"
+    CREATED = "created"
+    UPDATED = "updated"
+    FEATURE_NAMES = "feature_names"
+    LABEL_NAMES = "label_names"
+
+    # operative
+    LAST_REQUEST = "last_request"
+    DRIFT_STATUS = "drift_status"
+    AVG_LATENCY = "avg_latency"
+    ERROR_COUNT = "error_count"
+    FEATURE_STATS = "feature_stats"
+    CURRENT_STATS = "current_stats"
+    DRIFT_MEASURES = "drift_measures"
+
+
 class EventFieldType:
     FUNCTION_URI = "function_uri"
     FUNCTION = "function"
@@ -225,6 +257,17 @@ class EndpointType(IntEnum):
     NODE_EP = 1  # end point that is not a child of a router
     ROUTER = 2  # endpoint that is router
     LEAF_EP = 3  # end point that is a child of a router
+    BATCH_EP = 4  # endpoint that is representing an offline batch endpoint
+
+    @classmethod
+    def top_level_list(cls):
+        return [cls.NODE_EP, cls.ROUTER, cls.BATCH_EP]
+
+
+class ModelEndpointState(MonitoringStrEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    OFFLINE = "offline"
 
 
 class MonitoringFunctionNames(MonitoringStrEnum):
@@ -363,7 +406,6 @@ class SpecialApps:
 
 
 _RESERVED_FUNCTION_NAMES = MonitoringFunctionNames.list() + [SpecialApps.MLRUN_INFRA]
-
 
 V3IO_MODEL_MONITORING_DB = "v3io"
 
