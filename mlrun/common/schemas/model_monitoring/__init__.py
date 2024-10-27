@@ -27,7 +27,6 @@ from .constants import (
     MetricData,
     ModelEndpointMonitoringMetricType,
     ModelEndpointSchema,
-    ModelEndpointState,
     ModelEndpointTarget,
     ModelEndpointTargetSchemas,
     ModelMonitoringMode,

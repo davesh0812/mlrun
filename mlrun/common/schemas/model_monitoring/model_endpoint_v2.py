@@ -66,11 +66,6 @@ class ModelEndpointV2Spec(ObjectSpec, ModelEndpointParser):
     feature_names: Optional[list[str]] = []
     label_names: Optional[list[str]] = []
 
-    # stream_path: Optional[str] = ""  # ??
-    # active: Optional[bool] = (
-    #     True  # TODO : consider to remove and use status.state instead
-    # )
-
 
 class ModelEndpointV2Status(ObjectStatus, ModelEndpointParser):
     state: Optional[str] = "unknown"  # will be updated according to the function state
@@ -78,10 +73,7 @@ class ModelEndpointV2Status(ObjectStatus, ModelEndpointParser):
     children: Optional[list[str]] = []
     children_uids: Optional[list[str]] = []
     monitoring_feature_set_uri: Optional[str] = ""
-
-    # from spec  ??
     monitoring_mode: Optional[ModelMonitoringMode] = ModelMonitoringMode.disabled.value
-
     function_uri: Optional[str] = ""  # <project_name>/<function_name>:<tag>
     model_uri: Optional[str] = ""
 
@@ -100,8 +92,6 @@ class ModelEndpointV2(BaseModel):
     metadata: ModelEndpointV2Metadata
     spec: ModelEndpointV2Spec
     status: ModelEndpointV2Status
-
-    # operative_data: ModelEndpointV2Operative
 
     def flat_dict(self, exclude: Optional[set] = None):
         """Generate a flattened `ModelEndpoint` dictionary. The flattened dictionary result is important for storing
@@ -122,16 +112,7 @@ class ModelEndpointV2(BaseModel):
         for k_object in model_endpoint_dictionary:
             for key in model_endpoint_dictionary[k_object]:
                 # Extract the value of the current field
-                current_value = model_endpoint_dictionary[k_object][key]
-
-                # # If the value is not from type str or bool (e.g. dict), convert it into a JSON string
-                # # for matching the database required format
-                # if not isinstance(current_value, (str, bool, int)) or isinstance(
-                #     current_value, enum.IntEnum
-                # ):
-                #     flatten_dict[key] = json.dumps(current_value)
-                # else:
-                flatten_dict[key] = current_value
+                flatten_dict[key] = model_endpoint_dictionary[k_object][key]
 
         return flatten_dict
 

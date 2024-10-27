@@ -148,7 +148,6 @@ from .model_monitoring import (
     ModelEndpointList,
     ModelEndpointMetadata,
     ModelEndpointSpec,
-    ModelEndpointState,
     ModelEndpointStatus,
     ModelEndpointV2,
     ModelEndpointV2Metadata,

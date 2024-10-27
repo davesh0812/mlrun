@@ -822,59 +822,6 @@ with warnings.catch_warnings():
         labels = relationship(Label, cascade="all, delete-orphan")
         tags = relationship(Tag, cascade="all, delete-orphan")
 
-        # TODO : body
-        # state = Column(
-        #     String(255, collation=SQLTypesUtil.collation())
-        # )  # active / inactive / offline(? - batch infer)
-        # monitoring_mode = Column(String(255, collation=SQLTypesUtil.collation()))
-        # feature_names = Column(Text(collation=SQLTypesUtil.collation()))
-        # children = Column(Text(collation=SQLTypesUtil.collation()))
-        # label_names = Column(Text(collation=SQLTypesUtil.collation()))
-        # endpoint_type = Column(String(255, collation=SQLTypesUtil.collation()))
-        # children_uids = Column(Text(collation=SQLTypesUtil.collation()))
-        # monitoring_feature_set_uri = Column(
-        #     String(255, collation=SQLTypesUtil.collation())
-        # )
-        # first_request = Column(
-        #     SQLTypesUtil.timestamp(),
-        # )
-        # model_class = Column(String(255, collation=SQLTypesUtil.collation()))
-
-        # TODO : DELETE
-        # labels = Column(Text(collation=SQLTypesUtil.collation()))  # make_labels
-        # model_uri = Column(
-        #     String(255, collation=SQLTypesUtil.collation())
-        # )  # use artifact pointer instead
-        # function_uri = Column(
-        #     String(255, collation=SQLTypesUtil.collation())
-        # )  # point to functions table
-        # model = Column(
-        #     String(255, collation=SQLTypesUtil.collation())
-        # )  # point to artifact table
-        # stream_path = Column(
-        #     Text(collation=SQLTypesUtil.collation())
-        # )  # ?? (use state for detect if it is offline endpoints)
-        # active = Column(
-        #     Boolean()
-        # )  # use state instead
-        # last_request = Column(
-        #     EventFieldType.LAST_REQUEST,
-        #     # TODO: migrate to DATETIME, see ML-6921
-        #     sqlalchemy.dialects.mysql.TIMESTAMP(fsp=3, timezone=True),
-        # )
-        # error_count = Column(EventFieldType.ERROR_COUNT, Integer)
-        # feature_stats = Column(
-        #     EventFieldType.FEATURE_STATS, sqlalchemy.dialects.mysql.MEDIUMTEXT
-        # )
-        # current_stats = Column(
-        #     EventFieldType.CURRENT_STATS, sqlalchemy.dialects.mysql.MEDIUMTEXT
-        # )
-        # metrics = Column(EventFieldType.METRICS, sqlalchemy.dialects.mysql.MEDIUMTEXT)
-        # monitor_configuration = Column(Text(collation=SQLTypesUtil.collation()))
-        # drift_measures = Column(Text(collation=SQLTypesUtil.collation()))
-        # drift_status = Column(String(255, collation=SQLTypesUtil.collation()))
-        # algorithm = Column(String(255, collation=SQLTypesUtil.collation()))
-
         def get_identifier_string(self) -> str:
             return f"{self.project}_{self.name}_{self.created}"
 

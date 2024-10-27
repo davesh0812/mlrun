@@ -264,12 +264,6 @@ class EndpointType(IntEnum):
         return [cls.NODE_EP, cls.ROUTER, cls.BATCH_EP]
 
 
-class ModelEndpointState(MonitoringStrEnum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    OFFLINE = "offline"
-
-
 class MonitoringFunctionNames(MonitoringStrEnum):
     STREAM = "model-monitoring-stream"
     APPLICATION_CONTROLLER = "model-monitoring-controller"
