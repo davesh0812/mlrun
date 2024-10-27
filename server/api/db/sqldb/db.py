@@ -4830,7 +4830,7 @@ class SQLDB(DBInterface):
         labels: list[str],
         start: datetime,
         end: datetime,
-        uids: typing.List[str],
+        uids: list[str],
         latest_only: bool,
         page: typing.Optional[int],
         page_size: typing.Optional[int],
