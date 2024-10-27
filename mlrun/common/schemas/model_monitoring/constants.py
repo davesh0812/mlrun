@@ -30,28 +30,36 @@ class MonitoringStrEnum(StrEnum):
 
 
 class ModelEndpointSchema(MonitoringStrEnum):
+    # metadata
     UID = "uid"
     PROJECT = "project"
-    FUNCTION_URI = "function_uri"
+    ENDPOINT_TYPE = "endpoint_type"
+    NAME = "name"
+    CREATED = "created"
+    UPDATED = "updated"
+    LABELS = "labels"
+
+    # spec
     FUNCTION_NAME = "function_name"
+    FUNCTION_UID = "function_uid"
     MODEL_NAME = "model_name"
     MODEL_TAG = "model_tag"
     MODEL_CLASS = "model_class"
-    LABELS = "labels"
-    MODEL_URI = "model_uri"
-    ENDPOINT_TYPE = "endpoint_type"
+    MODEL_UID = "model_uid"
+    FEATURE_NAMES = "feature_names"
+    LABEL_NAMES = "label_names"
+
+    # status
     STATE = "state"
     MONITORING_MODE = "monitoring_mode"
     MONITORING_FEATURE_SET_URI = "monitoring_feature_set_uri"
     CHILDREN = "children"
     CHILDREN_UIDS = "children_uids"
-    NAME = "name"
-    CREATED = "created"
-    UPDATED = "updated"
-    FEATURE_NAMES = "feature_names"
-    LABEL_NAMES = "label_names"
+    FIRST_REQUEST = "first_request"
+    FUNCTION_URI = "function_uri"
+    MODEL_URI = "model_uri"
 
-    # operative
+    # status - operative
     LAST_REQUEST = "last_request"
     DRIFT_STATUS = "drift_status"
     AVG_LATENCY = "avg_latency"
