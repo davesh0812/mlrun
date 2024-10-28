@@ -58,6 +58,7 @@ from server.api.db.sqldb.models import (
     FeatureSet,
     FeatureVector,
     Function,
+    ModelEndpoint,
     Project,
     Run,
     Schedule,
@@ -1452,6 +1453,27 @@ def _create_resources_of_all_kinds(
     # create a datasource profile
     db.store_datastore_profile(db_session, ds_profile)
 
+    model_endpoint = mlrun.common.schemas.ModelEndpointV2(
+        metadata={
+            "name": "model-endpoint-1",
+            "project": project,
+            "labels": {"key": "value"},
+        },
+        spec={
+            "function_name": "function-1",
+            "function_uid": "function_hash_key",
+            "model_uid": "model_uid",
+        },
+        status={"monitoring_mode": "enabled"},
+    )
+
+    db.store_model_endpoint(
+        db_session,
+        model_endpoint,
+        name=model_endpoint.metadata.name,
+        project=model_endpoint.metadata.project,
+    )
+
 
 def _assert_resources_in_project(
     db_session: Session,
@@ -1642,6 +1664,13 @@ def _assert_db_resources_in_project(
                     db_session.query(Project)
                     .join(cls)
                     .filter(Project.name == project)
+                    .count()
+                )
+            if cls.__tablename__ == "model_endpoints_labels":
+                number_of_cls_records = (
+                    db_session.query(ModelEndpoint)
+                    .join(cls)
+                    .filter(ModelEndpoint.project == project)
                     .count()
                 )
             if cls.__tablename__ == "artifacts_labels":
