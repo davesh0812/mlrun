@@ -231,10 +231,6 @@ with warnings.catch_warnings():
                 "project",
                 "kind",
             ),
-            Index(
-                "idx_artifacts_uid",
-                "uid",
-            ),
         )
 
         Label = make_label(__tablename__)

@@ -39,11 +39,6 @@ def upgrade():
         "functions",
         ["name", "uid", "project"],
     )
-    op.create_index(
-        "idx_artifacts_uid",
-        "artifacts_v2",
-        ["uid"],
-    )
     op.create_table(
         "model_endpoints",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -138,6 +133,5 @@ def downgrade():
     )
     op.drop_table("model_endpoints_labels")
     op.drop_table("model_endpoints")
-    op.drop_index("idx_artifacts_uid", table_name="artifacts_v2")
     op.drop_index("idx_functions_name_uid_project", table_name="functions")
     # ### end Alembic commands ###
