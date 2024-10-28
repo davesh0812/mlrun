@@ -62,12 +62,12 @@ def upgrade():
             "name", sa.String(length=255, collation="utf8mb3_bin"), nullable=True
         ),
         sa.ForeignKeyConstraint(
-            ["function_name", "function_uid", "project"],
+            ("function_name", "function_uid", "project"),
             ["functions.name", "functions.uid", "functions.project"],
             name="_mep_function_constraint",
         ),
         sa.ForeignKeyConstraint(
-            ["model_uid"], ["artifacts_v2.uid"], name="_mep_model_constraint"
+            ("model_uid",), ["artifacts_v2.uid"], name="_mep_model_constraint"
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("project", "name", "uid", name="_mep_uc_2"),
@@ -83,7 +83,7 @@ def upgrade():
         ),
         sa.Column("parent", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(
-            ["parent"],
+            ("parent",),
             ["model_endpoints.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -109,7 +109,7 @@ def upgrade():
             "obj_name", sa.String(length=255, collation="utf8mb3_bin"), nullable=True
         ),
         sa.ForeignKeyConstraint(
-            ["obj_id"],
+            ("obj_id",),
             ["model_endpoints.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
