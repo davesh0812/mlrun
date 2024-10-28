@@ -231,6 +231,10 @@ with warnings.catch_warnings():
                 "project",
                 "kind",
             ),
+            Index(
+                "idx_artifacts_uid",
+                "uid",
+            ),
         )
 
         Label = make_label(__tablename__)
@@ -243,7 +247,7 @@ with warnings.catch_warnings():
         producer_id = Column(String(255, collation=SQLTypesUtil.collation()))
         iteration = Column(Integer)
         best_iteration = Column(BOOLEAN, default=False, index=True)
-        uid = Column(String(255, collation=SQLTypesUtil.collation()))
+        uid = Column(String(255, collation=SQLTypesUtil.collation()), index=True)
         created = Column(
             SQLTypesUtil.timestamp(),
             default=datetime.now(timezone.utc),
@@ -273,6 +277,7 @@ with warnings.catch_warnings():
         __tablename__ = "functions"
         __table_args__ = (
             UniqueConstraint("name", "project", "uid", name="_functions_uc"),
+            Index("idx_functions_name_uid_project", "name", "uid", "project"),
         )
 
         Label = make_label(__tablename__)
