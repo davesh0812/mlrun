@@ -211,8 +211,6 @@ class FileTargetKind:
     PARQUET = "parquet"
     APPS_PARQUET = "apps_parquet"
     LOG_STREAM = "log_stream"
-    APP_RESULTS = "app_results"
-    APP_METRICS = "app_metrics"
     MONITORING_SCHEDULES = "monitoring_schedules"
     MONITORING_APPLICATION = "monitoring_application"
     ERRORS = "errors"
@@ -326,6 +324,7 @@ class ResultKindApp(Enum):
     model_performance = 2
     system_performance = 3
     mm_app_anomaly = 4
+    none = 5
 
 
 class ResultStatusApp(IntEnum):

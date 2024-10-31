@@ -207,7 +207,6 @@ class ModelMonitoringWriter(StepToDict):
         event, kind = self._reconstruct_event(event)
         logger.info("Starting to write event", event=event)
         self._tsdb_connector.write_application_event(event=event.copy(), kind=kind)
-        self._app_result_store.write_application_event(event=event.copy(), kind=kind)
 
         logger.info("Completed event DB writes")
 
