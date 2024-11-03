@@ -29,7 +29,17 @@ import fastapi.concurrency
 import mergedeep
 import pytz
 import sqlalchemy
-from sqlalchemy import MetaData, and_, case, delete, distinct, func, or_, select, text
+from sqlalchemy import (
+    MetaData,
+    and_,
+    case,
+    delete,
+    distinct,
+    func,
+    or_,
+    select,
+    text,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session, aliased
@@ -2465,6 +2475,32 @@ class SQLDB(DBInterface):
 
         :return: The amount of deleted rows from the main table.
         """
+        related_tables = related_tables or []
+
+        def skip_deletion():
+            logger.debug(
+                "No identifier values provided, skipping deletion",
+                project=project,
+                tables=[main_table] + related_tables,
+            )
+            return 0
+
+        if project != "*":
+            where_clause = main_table.project == project
+            # To allow deleting all project resources - don't require main_table_identifier
+            if main_table_identifier:
+                if not main_table_identifier_values:
+                    return skip_deletion()
+
+                where_clause = and_(
+                    where_clause,
+                    main_table_identifier.in_(main_table_identifier_values),
+                )
+        else:
+            if not main_table_identifier_values or not main_table_identifier:
+                return skip_deletion()
+            where_clause = main_table_identifier.in_(main_table_identifier_values)
+
         for cls in related_tables:
             logger.debug(
                 "Removing objects",
@@ -6475,7 +6511,7 @@ class SQLDB(DBInterface):
             main_table=ModelEndpoint,
             related_tables=[ModelEndpoint.Tag, ModelEndpoint.Label],
             project=project,
-            main_table_identifier=ModelEndpoint.name,
+            main_table_identifier=ModelEndpoint.name if names else None,
             main_table_identifier_values=names,
         )
 
