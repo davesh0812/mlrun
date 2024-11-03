@@ -19,6 +19,7 @@ import mlrun
 import tests.api.db.test_functions
 from mlrun.common.schemas import ModelEndpointV2
 from server.api.db.base import DBInterface
+from server.api.db.sqldb.models import ModelEndpoint
 
 
 def _store_function(
@@ -446,3 +447,42 @@ def test_update(db: DBInterface, db_session: Session) -> None:
     assert model_endpoint_from_db.metadata.project == "project-1"
     assert model_endpoint_from_db.metadata.uid == uids[0]
     assert model_endpoint_from_db.status.monitoring_mode == "enabled"
+
+
+def test_delete_model_endpoints(db: DBInterface, db_session: Session) -> None:
+    model_uids = []
+    # store artifact
+    for i in range(2):
+        model_uids.append(_store_artifact(db, db_session, f"model-{i}"))
+    # store function
+    function_hash_key = _store_function(db, db_session)
+    model_endpoint = ModelEndpointV2(
+        metadata={"name": "model-endpoint-1", "project": "project-1"},
+        spec={
+            "function_name": "function-1",
+            "function_uid": function_hash_key,
+            "model_uid": model_uids[1],
+        },
+        status={"monitoring_mode": "enabled"},
+    )
+    uids = []
+    for i in range(4):
+        uid = db.store_model_endpoint(
+            db_session,
+            model_endpoint,
+            name=model_endpoint.metadata.name,
+            project=model_endpoint.metadata.project,
+        )
+        uids.append(uid)
+
+    assert db_session.query(ModelEndpoint.Label).count() == 0
+    assert db_session.query(ModelEndpoint.Tag).count() == 1
+    assert db_session.query(ModelEndpoint).count() == 4
+
+    db.delete_model_endpoints(
+        session=db_session, project=model_endpoint.metadata.project, names=[]
+    )
+
+    assert db_session.query(ModelEndpoint.Label).count() == 0
+    assert db_session.query(ModelEndpoint.Tag).count() == 0
+    assert db_session.query(ModelEndpoint).count() == 0

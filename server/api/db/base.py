@@ -1076,6 +1076,15 @@ class DBInterface(ABC):
         name: str,
         project: str,
     ) -> str:
+        """
+        Store a model endpoint in the DB.
+
+        :param session:         The database session.
+        :param model_endpoint:  The model endpoint object.
+        :param name:            The model endpoint name.
+        :param project:         The project name.
+        :return:                The model endpoint uid.
+        """
         pass
 
     def get_model_endpoint(
@@ -1083,7 +1092,7 @@ class DBInterface(ABC):
         session,
         project: str,
         name: str,
-        uid: str = None,
+        uid: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpointV2:
         """
         Get a model endpoint by project, name and uid.
@@ -1103,7 +1112,7 @@ class DBInterface(ABC):
         project: str,
         name: str,
         attributes: dict,
-        uid: str = None,
+        uid: typing.Optional[str] = None,
     ) -> str:
         """
         Update a model endpoint by project, name and uid.
@@ -1153,6 +1162,7 @@ class DBInterface(ABC):
         :param page_size:   The page size.
         :return:            A list of model endpoints.
         """
+        pass
 
     def delete_model_endpoint(
         self,
@@ -1169,5 +1179,17 @@ class DBInterface(ABC):
         :param project: The project name.
         :param name:    The model endpoint name.
         :param uid:     The model endpoint uid.
+        """
+        pass
+
+    def delete_model_endpoints(
+        self, session, project: str, names: typing.Union[str, list[str]]
+    ) -> None:
+        """
+        Delete model endpoints across projects and names.
+
+        :param session: The database session.
+        :param project: The project name.
+        :param names:   The model endpoint names.
         """
         pass

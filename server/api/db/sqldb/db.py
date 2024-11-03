@@ -2465,20 +2465,12 @@ class SQLDB(DBInterface):
 
         :return: The amount of deleted rows from the main table.
         """
-        if not main_table_identifier_values:
-            logger.debug(
-                "No identifier values provided, skipping deletion",
-                project=project,
-                tables=[main_table] + related_tables,
-            )
-            return 0
         for cls in related_tables:
             logger.debug(
                 "Removing objects",
                 cls=cls,
                 project=project,
                 main_table_identifier=main_table_identifier,
-                main_table_identifier_values_count=len(main_table_identifier_values),
             )
 
             # The select is mandatory for sqlalchemy 1.4 because
@@ -4824,16 +4816,16 @@ class SQLDB(DBInterface):
         session: Session,
         project: str,
         name: str,
-        function_name,
-        model_name,
+        function_name: str,
+        model_name: str,
         top_level: bool,
         labels: list[str],
         start: datetime,
         end: datetime,
         uids: list[str],
         latest_only: bool,
-        page: typing.Optional[int],
-        page_size: typing.Optional[int],
+        page: int,
+        page_size: int,
     ) -> sqlalchemy.orm.query.Query:
         """
         Query model_endpoints from the DB by the given filters.
@@ -6389,7 +6381,7 @@ class SQLDB(DBInterface):
         session,
         project: str,
         name: str,
-        uid: str = None,
+        uid: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpointV2:
         mep_record = self._get_model_endpoint(session, project, name, uid)
         if not mep_record:
@@ -6404,7 +6396,7 @@ class SQLDB(DBInterface):
         project: str,
         name: str,
         attributes: dict,
-        uid: str = None,
+        uid: typing.Optional[str] = None,
     ) -> str:
         mep_record = self._get_model_endpoint(session, project, name, uid)
         updated = datetime.now(timezone.utc)

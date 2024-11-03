@@ -774,9 +774,7 @@ with warnings.catch_warnings():
     class ModelEndpoint(Base, mlrun.utils.db.HasStruct):
         __tablename__ = "model_endpoints"
         __table_args__ = (
-            UniqueConstraint(
-                "project", "name", "uid", name="_mep_uc_2"
-            ),  # create time? in order to save old MEP
+            UniqueConstraint("project", "name", "uid", name="_mep_uc_2"),
             ForeignKeyConstraint(
                 ("function_name", "function_uid", "project"),
                 ["functions.name", "functions.uid", "functions.project"],
@@ -796,7 +794,6 @@ with warnings.catch_warnings():
         model_uid = Column(String(255, collation=SQLTypesUtil.collation()))
         body = Column(SQLTypesUtil.blob())
 
-        # TODO :new columns
         created = Column(
             SQLTypesUtil.timestamp(),
             default=datetime.now(timezone.utc),

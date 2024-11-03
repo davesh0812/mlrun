@@ -959,7 +959,7 @@ def fill_model_endpoint_hash(
     - model_tag
     - function_name
     - project
-    -created_time
+    - created_time
     """
 
     name = model_endpoint.metadata.name
@@ -967,16 +967,10 @@ def fill_model_endpoint_hash(
     function_name = model_endpoint.spec.function_name
     project = model_endpoint.metadata.project
 
-    uid = get_model_endpoint_hash(project, name, model_tag, function_name, created_time)
+    unique_string = f"{name}_{model_tag}_{function_name}_{project}_{created_time}"
+    uid = hashlib.sha1(unique_string.encode("utf-8")).hexdigest()
     model_endpoint.metadata.uid = uid
     return uid
-
-
-def get_model_endpoint_hash(
-    mep_name: str, model_tag: str, function_name: str, project: str, created_time: str
-):
-    unique_string = f"{mep_name}_{model_tag}_{function_name}_{project}_{created_time}"
-    return hashlib.sha1(unique_string.encode("utf-8")).hexdigest()
 
 
 def retry_until_successful(
