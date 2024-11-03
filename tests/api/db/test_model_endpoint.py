@@ -52,6 +52,7 @@ def _store_artifact(db: DBInterface, db_session: Session, key: str) -> str:
         db_session,
         key,
         artifact,
+        project="project-1",
     )
     return model_uid
 
@@ -70,6 +71,7 @@ def test_sanity(db: DBInterface, db_session: Session) -> None:
             "function_name": "function-1",
             "function_uid": function_hash_key,
             "model_uid": model_uids[1],
+            "model_name": "model-1",
         },
         status={"monitoring_mode": "enabled"},
     )
@@ -149,6 +151,7 @@ def test_list_filters(db: DBInterface, db_session: Session) -> None:
             "function_name": "function-1",
             "function_uid": function_hash_key,
             "model_uid": model_uids[1],
+            "model_name": "model-1",
         },
         status={"monitoring_mode": "enabled"},
     )
@@ -254,6 +257,7 @@ def test_update_automatically_after_function_update(
             "function_name": "function-1",
             "function_uid": function_hash_key,
             "model_uid": model_uids[1],
+            "model_name": "model-1",
         },
         status={"monitoring_mode": "enabled"},
     )
@@ -309,6 +313,7 @@ def test_update_automatically_after_model_update(
             "function_name": "function-1",
             "function_uid": function_hash_key,
             "model_uid": model_uids[1],
+            "model_name": "model-1",
         },
         status={"monitoring_mode": "enabled"},
     )
@@ -340,6 +345,7 @@ def test_update_automatically_after_model_update(
         db_session,
         f"model-{1}",
         artifact,
+        project="project-1",
     )
 
     model_endpoint_from_db = db.get_model_endpoint(
@@ -374,6 +380,7 @@ def test_update(db: DBInterface, db_session: Session) -> None:
             "function_name": "function-1",
             "function_uid": function_hash_key,
             "model_uid": model_uids[1],
+            "model_name": "model-1",
         },
         status={"monitoring_mode": "enabled"},
     )
@@ -462,6 +469,7 @@ def test_delete_model_endpoints(db: DBInterface, db_session: Session) -> None:
             "function_name": "function-1",
             "function_uid": function_hash_key,
             "model_uid": model_uids[1],
+            "model_name": "model-1",
         },
         status={"monitoring_mode": "enabled"},
     )

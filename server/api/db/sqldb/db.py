@@ -4921,9 +4921,13 @@ class SQLDB(DBInterface):
             )
 
         if model_name:
-            query = query.join(ArtifactV2, ModelEndpoint.model)
-            if model_name:
-                query = query.filter(ArtifactV2.key == model_name)
+            query = self._filter_values(
+                query=query,
+                cls=model_endpoints_table,
+                key_filter=ModelEndpointSchema.MODEL_NAME,
+                filtered_values=[model_name],
+                combined=False,
+            )
 
         if start or end:
             start = start or datetime.min
@@ -6406,6 +6410,7 @@ class SQLDB(DBInterface):
             function_name=model_endpoint.spec.function_name,
             function_uid=model_endpoint.spec.function_uid,
             model_uid=model_endpoint.spec.model_uid,
+            model_name=model_endpoint.spec.model_name,
             updated=created_time,
             endpoint_type=model_endpoint.metadata.endpoint_type,
         )

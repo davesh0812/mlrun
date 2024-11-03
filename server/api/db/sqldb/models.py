@@ -881,7 +881,9 @@ with warnings.catch_warnings():
                 name="_mep_function_constraint",
             ),
             ForeignKeyConstraint(
-                ("model_uid",), ["artifacts_v2.uid"], name="_mep_model_constraint"
+                ("model_uid", "project", "model_name"),
+                ["artifacts_v2.uid", "artifacts_v2.project", "artifacts_v2.key"],
+                name="_mep_model_constraint",
             ),
         )
 
@@ -892,6 +894,7 @@ with warnings.catch_warnings():
         function_name = Column(String(255, collation=SQLTypesUtil.collation()))
         function_uid = Column(String(255, collation=SQLTypesUtil.collation()))
         model_uid = Column(String(255, collation=SQLTypesUtil.collation()))
+        model_name = Column(String(255, collation=SQLTypesUtil.collation()))
         body = Column(SQLTypesUtil.blob())
 
         created = Column(
