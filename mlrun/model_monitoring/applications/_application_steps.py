@@ -162,20 +162,17 @@ class _ApplicationErrorHandler(StepToDict):
         :param event: Application event.
         """
 
-        exception_with_trace = "".join(
-            traceback.format_exception(None, event.error, event.error.__traceback__)
-        )
         error_data = {
             "Endpoint ID": event.body.endpoint_id,
             "Application Class": event.body.application_name,
-            "Error": event.error,
+            "Error": "".join(
+                traceback.format_exception(None, event.error, event.error.__traceback__)
+            ),
             "Timestamp": event.timestamp,
         }
-        logger.error(
-            "Error in application step",
-            **error_data,
-            exception_with_trace=exception_with_trace,
-        )
+        logger.error("Error in application step", **error_data)
+
+        error_data["Error"] = event.error
 
         event_data = alert_objects.Event(
             kind=alert_objects.EventKind.MM_APP_FAILED,
