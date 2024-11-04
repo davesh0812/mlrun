@@ -239,6 +239,7 @@ with warnings.catch_warnings():
                 "project",
                 "kind",
             ),
+            Index("idx_artifacts_name_uid_project", "key", "uid", "project"),
         )
 
         Label = make_label(__tablename__)
