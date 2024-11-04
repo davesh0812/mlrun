@@ -252,7 +252,7 @@ with warnings.catch_warnings():
         producer_id = Column(String(255, collation=SQLTypesUtil.collation()))
         iteration = Column(Integer)
         best_iteration = Column(BOOLEAN, default=False, index=True)
-        uid = Column(String(255, collation=SQLTypesUtil.collation()), index=True)
+        uid = Column(String(255, collation=SQLTypesUtil.collation()))
         created = Column(
             SQLTypesUtil.timestamp(),
             default=datetime.now(timezone.utc),
