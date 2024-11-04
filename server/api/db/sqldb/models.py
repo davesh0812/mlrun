@@ -960,6 +960,5 @@ with warnings.catch_warnings():
             return f"{self.project}/{self.name}/{self.id}"
 
 
-
 # Must be after all table definitions
 post_table_definitions(base_cls=Base)
