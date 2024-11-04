@@ -1,4 +1,4 @@
-# Copyright 2023 Iguazio
+# Copyright 2024 Iguazio
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,12 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 """Add model_endpoints table
 
-Revision ID: 846bc95e9ec8
-Revises: dd6049a25a81
-Create Date: 2024-11-04 11:01:15.685470
+Revision ID: 2fa14ac323db
+Revises: 650f0ce2da6f
+Create Date: 2024-11-04 17:17:46.239870
 
 """
 
@@ -25,8 +24,8 @@ from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "846bc95e9ec8"
-down_revision = "dd6049a25a81"
+revision = "2fa14ac323db"
+down_revision = "650f0ce2da6f"
 branch_labels = None
 depends_on = None
 
@@ -76,12 +75,12 @@ def upgrade():
             "name", sa.String(length=255, collation="utf8mb3_bin"), nullable=True
         ),
         sa.ForeignKeyConstraint(
-            ("function_name", "function_uid", "project"),
+            ["function_name", "function_uid", "project"],
             ["functions.name", "functions.uid", "functions.project"],
             name="_mep_function_constraint",
         ),
         sa.ForeignKeyConstraint(
-            ("model_uid", "project", "model_name"),
+            ["model_uid", "project", "model_name"],
             ["artifacts_v2.uid", "artifacts_v2.project", "artifacts_v2.key"],
             name="_mep_model_constraint",
         ),
@@ -98,9 +97,7 @@ def upgrade():
             "value", sa.String(length=255, collation="utf8mb3_bin"), nullable=True
         ),
         sa.Column("parent", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ("parent",), ["model_endpoints.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["parent"], ["model_endpoints.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name", "parent", name="_model_endpoints_labels_uc"),
     )
@@ -123,9 +120,7 @@ def upgrade():
         sa.Column(
             "obj_name", sa.String(length=255, collation="utf8mb3_bin"), nullable=True
         ),
-        sa.ForeignKeyConstraint(
-            ("obj_id",), ["model_endpoints.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["obj_id"], ["model_endpoints.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "project", "name", "obj_name", name="_model_endpoints_tags_uc"
