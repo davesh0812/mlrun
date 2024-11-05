@@ -21,6 +21,8 @@ from .base import ObjectFormat
 
 
 class ModelEndpointFormat(ObjectFormat, mlrun.common.types.StrEnum):
+    full = "full"
+
     @staticmethod
     def format_method(_format: str) -> typing.Optional[typing.Callable]:
         return {
