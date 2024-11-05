@@ -628,7 +628,7 @@ class ModelEndpoints:
         try:
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
                 project=project,
-                secret_provider=server.api.crud.secrets.get_project_secret_provider(
+                secret_provider=services.api.crud.secrets.get_project_secret_provider(
                     project=project
                 ),
             )

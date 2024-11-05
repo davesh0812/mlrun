@@ -375,7 +375,7 @@ async def get_model_endpoint_monitoring_metrics(
                 )
             )
         )
-    metrics.append(mlrun.model_monitoring.helpers.get_invocations_metric(project))
+        metrics.append(mlrun.model_monitoring.helpers.get_invocations_metric(project))
     await asyncio.wait(tasks)
     for task in tasks:
         metrics.extend(task.result())
