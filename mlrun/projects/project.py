@@ -40,6 +40,7 @@ import requests
 import yaml
 from mlrun_pipelines.models import PipelineNodeWrapper
 
+import mlrun.common.formatters
 import mlrun.common.helpers
 import mlrun.common.runtimes.constants
 import mlrun.common.schemas.artifact
@@ -47,6 +48,7 @@ import mlrun.common.schemas.model_monitoring.constants as mm_constants
 import mlrun.db
 import mlrun.errors
 import mlrun.k8s_utils
+import mlrun.lists
 import mlrun.model_monitoring.applications as mm_app
 import mlrun.runtimes
 import mlrun.runtimes.nuclio.api_gateway
@@ -1775,7 +1777,7 @@ class MlrunProject(ModelObj):
         :param key:             artifact key or artifact class ()
         :param body:            will use the body as the artifact content
         :param model_file:      path to the local model file we upload (see also model_dir)
-                                or to a model file data url (e.g. http://host/path/model.pkl)
+                                or to a model file data url (e.g. `http://host/path/model.pkl`)
         :param model_dir:       path to the local dir holding the model file and extra files
         :param artifact_path:   target artifact path (when not using the default)
                                 to define a subpath under the default location use:
@@ -3799,6 +3801,9 @@ class MlrunProject(ModelObj):
         category: typing.Union[str, mlrun.common.schemas.ArtifactCategories] = None,
         tree: str = None,
         limit: int = None,
+        format_: Optional[
+            mlrun.common.formatters.ArtifactFormat
+        ] = mlrun.common.formatters.ArtifactFormat.full,
     ) -> mlrun.lists.ArtifactList:
         """List artifacts filtered by various parameters.
 
@@ -3834,6 +3839,7 @@ class MlrunProject(ModelObj):
         :param category: Return artifacts of the requested category.
         :param tree: Return artifacts of the requested tree.
         :param limit: Maximum number of artifacts to return.
+        :param format_: The format in which to return the artifacts. Default is 'full'.
         """
         db = mlrun.db.get_run_db(secrets=self._secrets)
         return db.list_artifacts(
@@ -3848,6 +3854,7 @@ class MlrunProject(ModelObj):
             kind=kind,
             category=category,
             tree=tree,
+            format_=format_,
             limit=limit,
         )
 
@@ -3861,6 +3868,10 @@ class MlrunProject(ModelObj):
         iter: int = None,
         best_iteration: bool = False,
         tree: str = None,
+        limit: int = None,
+        format_: Optional[
+            mlrun.common.formatters.ArtifactFormat
+        ] = mlrun.common.formatters.ArtifactFormat.full,
     ):
         """List models in project, filtered by various parameters.
 
@@ -3889,6 +3900,8 @@ class MlrunProject(ModelObj):
             artifacts generated from a hyper-param run. If only a single iteration exists, will return the artifact
             from that iteration. If using ``best_iter``, the ``iter`` parameter must not be used.
         :param tree: Return artifacts of the requested tree.
+        :param limit: Maximum number of artifacts to return.
+        :param format_: The format in which to return the artifacts. Default is 'full'.
         """
         db = mlrun.db.get_run_db(secrets=self._secrets)
         return db.list_artifacts(
@@ -3902,6 +3915,8 @@ class MlrunProject(ModelObj):
             best_iteration=best_iteration,
             kind="model",
             tree=tree,
+            limit=limit,
+            format_=format_,
         ).to_objects()
 
     def list_functions(
@@ -4203,13 +4218,17 @@ class MlrunProject(ModelObj):
         mlrun.db.get_run_db().delete_api_gateway(name=name, project=self.name)
 
     def store_alert_config(
-        self, alert_data: AlertConfig, alert_name: typing.Optional[str] = None
+        self,
+        alert_data: AlertConfig,
+        alert_name: typing.Optional[str] = None,
+        force_reset: bool = False,
     ) -> AlertConfig:
         """
         Create/modify an alert.
 
         :param alert_data: The data of the alert.
         :param alert_name: The name of the alert.
+        :param force_reset: If True and the alert already exists, the alert would be reset.
         :return: the created/modified alert.
         """
         if not alert_data:
@@ -4223,7 +4242,9 @@ class MlrunProject(ModelObj):
                 project=alert_data.project,
             )
         alert_data.project = self.metadata.name
-        return db.store_alert_config(alert_name, alert_data, project=self.metadata.name)
+        return db.store_alert_config(
+            alert_name, alert_data, project=self.metadata.name, force_reset=force_reset
+        )
 
     def get_alert_config(self, alert_name: str) -> AlertConfig:
         """

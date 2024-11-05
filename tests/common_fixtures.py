@@ -33,6 +33,7 @@ import v3io.dataplane.response
 from aioresponses import aioresponses as aioresponses_
 
 import mlrun.common.constants as mlrun_constants
+import mlrun.common.formatters
 import mlrun.common.schemas
 import mlrun.config
 import mlrun.datastore
@@ -199,7 +200,6 @@ def patch_file_not_found(monkeypatch):
             return MockV3ioObject()
 
     mock_get = mock_failed_get_func(HTTPStatus.NOT_FOUND.value)
-
     monkeypatch.setattr(requests, "get", mock_get)
     monkeypatch.setattr(requests, "head", mock_get)
     monkeypatch.setattr(v3io.dataplane, "Client", MockV3ioClient)
@@ -267,11 +267,11 @@ class RunDBMock:
     def store_artifact(
         self, key, artifact, uid=None, iter=None, tag="", project="", tree=None
     ):
-        self._artifacts[key] = artifact
+        self._artifacts[(key, iter or 0)] = artifact
         return artifact
 
     def read_artifact(self, key, tag=None, iter=None, project="", tree=None, uid=None):
-        return self._artifacts.get(key, None)
+        return self._artifacts.get((key, iter or 0), None)
 
     def list_artifacts(
         self,
@@ -286,6 +286,9 @@ class RunDBMock:
         kind: str = None,
         category: Union[str, mlrun.common.schemas.ArtifactCategories] = None,
         tree: str = None,
+        format_: Optional[
+            mlrun.common.formatters.ArtifactFormat
+        ] = mlrun.common.formatters.ArtifactFormat.full,
         limit: int = None,
     ):
         def filter_artifact(artifact):

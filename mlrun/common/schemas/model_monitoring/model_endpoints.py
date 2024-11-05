@@ -322,6 +322,7 @@ class _ResultPoint(NamedTuple):
     timestamp: datetime
     value: float
     status: ResultStatusApp
+    extra_data: Optional[str] = ""
 
 
 class _ModelEndpointMonitoringMetricValuesBase(BaseModel):

@@ -22,7 +22,6 @@ from mlrun.common.schemas.model_monitoring import (
 
 from .base import (
     ModelEndpointsBaseTable,
-    MonitoringSchedulesBaseTable,
 )
 
 Base = declarative_base()
@@ -46,12 +45,3 @@ class ModelEndpointsTable(Base, ModelEndpointsBaseTable):
         # TODO: migrate to DATETIME, see ML-6921
         sqlalchemy.dialects.mysql.TIMESTAMP(fsp=3, timezone=True),
     )
-
-
-class MonitoringSchedulesTable(Base, MonitoringSchedulesBaseTable):
-    @declared_attr
-    def endpoint_id(self):
-        return Column(
-            String(40),
-            ForeignKey(f"{EventFieldType.MODEL_ENDPOINTS}.{EventFieldType.UID}"),
-        )

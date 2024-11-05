@@ -24,7 +24,6 @@ from sqlalchemy import (
 from mlrun.common.schemas.model_monitoring import (
     EventFieldType,
     FileTargetKind,
-    SchedulingKeys,
 )
 from mlrun.utils.db import BaseModel
 
@@ -92,27 +91,4 @@ class ModelEndpointsBaseTable(BaseModel):
     last_request = Column(
         EventFieldType.LAST_REQUEST,
         TIMESTAMP(timezone=True),  # TODO: migrate to DATETIME, see ML-6921
-    )
-
-
-class MonitoringSchedulesBaseTable(BaseModel):
-    __tablename__ = FileTargetKind.MONITORING_SCHEDULES
-
-    uid = Column(SchedulingKeys.UID, String(32), primary_key=True)
-
-    application_name = Column(
-        SchedulingKeys.APPLICATION_NAME,
-        String(40),
-        nullable=False,
-    )
-
-    endpoint_id = Column(
-        SchedulingKeys.ENDPOINT_ID,
-        String(40),
-        nullable=False,
-    )
-
-    last_analyzed = Column(
-        SchedulingKeys.LAST_ANALYZED,
-        Integer,
     )
