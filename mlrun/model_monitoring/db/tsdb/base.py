@@ -474,7 +474,7 @@ class TSDBConnector(ABC):
                     app=record.get(mm_schemas.WriterEvent.APPLICATION_NAME),
                     name=record.get(mm_schemas.ResultData.RESULT_NAME)
                     or record.get(mm_schemas.MetricData.METRIC_NAME),
-                    kind=record.get("result_kind"),
+                    kind=record.get(mm_schemas.ResultData.RESULT_KIND),
                 ),
                 df.to_dict("records"),
             )

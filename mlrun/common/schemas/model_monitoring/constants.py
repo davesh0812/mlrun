@@ -316,7 +316,6 @@ class ResultKindApp(Enum):
     model_performance = 2
     system_performance = 3
     mm_app_anomaly = 4
-    none = 5
 
 
 class ResultStatusApp(IntEnum):
