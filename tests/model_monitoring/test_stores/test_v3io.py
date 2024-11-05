@@ -14,10 +14,9 @@
 
 from collections import Counter
 from collections.abc import Iterator
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from http import HTTPStatus
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pandas as pd
