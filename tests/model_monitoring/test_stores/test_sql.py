@@ -25,13 +25,7 @@ import pytest
 
 import mlrun.common.schemas
 import mlrun.model_monitoring
-from mlrun.common.schemas.model_monitoring import (
-    MetricData,
-    ResultData,
-    WriterEvent,
-)
 from mlrun.model_monitoring.db.stores.sqldb.sql_store import SQLStoreBase
-from mlrun.model_monitoring.writer import _AppResultEvent
 
 
 class TestSQLStore:
@@ -67,65 +61,6 @@ class TestSQLStore:
             ),
             status=mlrun.common.schemas.ModelEndpointStatus(state=state),
         )
-
-    @staticmethod
-    @pytest.fixture
-    def event(
-        _mock_random_endpoint: mlrun.common.schemas.ModelEndpoint,
-    ) -> _AppResultEvent:
-        return _AppResultEvent(
-            {
-                WriterEvent.ENDPOINT_ID: _mock_random_endpoint.metadata.uid,
-                WriterEvent.START_INFER_TIME: "2023-09-19 14:26:06.501084",
-                WriterEvent.END_INFER_TIME: "2023-09-19 16:26:06.501084",
-                WriterEvent.APPLICATION_NAME: "dummy-app",
-                ResultData.RESULT_NAME: "data-drift-0",
-                ResultData.RESULT_KIND: 0,
-                ResultData.RESULT_VALUE: 0.32,
-                ResultData.RESULT_STATUS: 0,
-                ResultData.RESULT_EXTRA_DATA: "",
-            }
-        )
-
-    @staticmethod
-    @pytest.fixture
-    def event_v2(
-        _mock_random_endpoint: mlrun.common.schemas.ModelEndpoint,
-    ) -> _AppResultEvent:
-        return _AppResultEvent(
-            {
-                WriterEvent.ENDPOINT_ID: _mock_random_endpoint.metadata.uid,
-                WriterEvent.START_INFER_TIME: "2023-09-20 14:26:06.501084",
-                WriterEvent.END_INFER_TIME: "2023-09-20 16:26:06.501084",
-                WriterEvent.APPLICATION_NAME: "dummy-app",
-                ResultData.RESULT_NAME: "data-drift-0",
-                ResultData.RESULT_KIND: 1,
-                ResultData.RESULT_VALUE: 5.15,
-                ResultData.RESULT_STATUS: 1,
-                ResultData.RESULT_EXTRA_DATA: "",
-            }
-        )
-
-    @staticmethod
-    @pytest.fixture
-    def metric_event(
-        _mock_random_endpoint: mlrun.common.schemas.ModelEndpoint,
-    ) -> _AppResultEvent:
-        return _AppResultEvent(
-            {
-                WriterEvent.ENDPOINT_ID: _mock_random_endpoint.metadata.uid,
-                WriterEvent.START_INFER_TIME: "2023-09-22 14:26:06.501084",
-                WriterEvent.END_INFER_TIME: "2023-09-22 16:26:06.501084",
-                WriterEvent.APPLICATION_NAME: "smart-app",
-                MetricData.METRIC_NAME: "met-metric",
-                MetricData.METRIC_VALUE: 0.4,
-            }
-        )
-
-    @staticmethod
-    @pytest.fixture(autouse=True)
-    def init_sql_tables(new_sql_store: SQLStoreBase) -> None:
-        new_sql_store.create_tables()
 
     @classmethod
     @pytest.fixture
