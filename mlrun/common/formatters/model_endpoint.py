@@ -21,13 +21,8 @@ from .base import ObjectFormat
 
 
 class ModelEndpointFormat(ObjectFormat, mlrun.common.types.StrEnum):
-    minimal = "minimal"
-
     @staticmethod
     def format_method(_format: str) -> typing.Optional[typing.Callable]:
         return {
             ModelEndpointFormat.full: None,
-            ModelEndpointFormat.minimal: ModelEndpointFormat.filter_obj_method(
-                ["kind", "metadata", "spec", "status.state", "status.monitoring_mode"]
-            ),
         }[_format]
