@@ -674,7 +674,6 @@ def test_delete_project_not_deleting_versioned_objects_multiple_times(
     services.api.utils.singletons.db.get_db()._delete_project_feature_vectors = (
         unittest.mock.Mock()
     )
-
     # deletion strategy - check - should fail because there are resources
     response = client.delete(
         f"projects/{project_name}",
@@ -684,9 +683,9 @@ def test_delete_project_not_deleting_versioned_objects_multiple_times(
     )
     assert response.status_code == HTTPStatus.NO_CONTENT.value
 
-    server.api.utils.singletons.db.get_db()._delete_project_functions.assert_called_once()
-    server.api.utils.singletons.db.get_db()._delete_project_feature_sets.assert_called_once()
-    server.api.utils.singletons.db.get_db()._delete_project_feature_vectors.assert_called_once()
+    services.api.utils.singletons.db.get_db()._delete_project_functions.assert_called_once()
+    services.api.utils.singletons.db.get_db()._delete_project_feature_sets.assert_called_once()
+    services.api.utils.singletons.db.get_db()._delete_project_feature_vectors.assert_called_once()
 
 
 def test_delete_project_deletion_strategy_check_external_resource(
@@ -1260,18 +1259,21 @@ def _create_resources_of_all_kinds(
     }
     function_names = ["function_name_1", "function_name_2", "function_name_3"]
     function_tags = ["some_tag", "some_tag2", "some_tag3"]
+    functions_hashes = []
     for function_name in function_names:
         for function_tag in function_tags:
             # change spec a bit so different (un-tagged) versions will be created
             for index in range(3):
                 function["spec"]["index"] = index
-                db.store_function(
-                    db_session,
-                    function,
-                    function_name,
-                    project,
-                    tag=function_tag,
-                    versioned=True,
+                functions_hashes.append(
+                    db.store_function(
+                        db_session,
+                        function,
+                        function_name,
+                        project,
+                        tag=function_tag,
+                        versioned=True,
+                    )
                 )
 
     # Create several artifacts with several tags
@@ -1284,6 +1286,7 @@ def _create_resources_of_all_kinds(
     artifact_keys = ["artifact_key_1", "artifact_key_2", "artifact_key_3"]
     artifact_trees = ["some_tree", "some_tree2", "some_tree3"]
     artifact_tags = ["some-tag", "some-tag2", "some-tag3"]
+    artifact_uids = []
     for artifact_key in artifact_keys:
         for artifact_tree in artifact_trees:
             for artifact_tag in artifact_tags:
@@ -1295,14 +1298,16 @@ def _create_resources_of_all_kinds(
 
                     # pass a copy of the artifact to the store function, otherwise the store function will change the
                     # original artifact
-                    db.store_artifact(
-                        db_session,
-                        artifact_key,
-                        artifact,
-                        iter=artifact_iter,
-                        tag=artifact_tag,
-                        project=project,
-                        producer_id=artifact_tree,
+                    artifact_uids.append(
+                        db.store_artifact(
+                            db_session,
+                            artifact_key,
+                            artifact,
+                            iter=artifact_iter,
+                            tag=artifact_tag,
+                            project=project,
+                            producer_id=artifact_tree,
+                        )
                     )
 
     # Create several runs
@@ -1666,6 +1671,13 @@ def _assert_db_resources_in_project(
                     db_session.query(Project)
                     .join(cls)
                     .filter(Project.name == project)
+                    .count()
+                )
+            if cls.__tablename__ == "model_endpoints_labels":
+                number_of_cls_records = (
+                    db_session.query(ModelEndpoint)
+                    .join(cls)
+                    .filter(ModelEndpoint.project == project)
                     .count()
                 )
             if cls.__tablename__ == "artifacts_labels":

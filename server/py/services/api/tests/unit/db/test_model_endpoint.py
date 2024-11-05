@@ -16,10 +16,10 @@ import pytest
 from sqlalchemy.orm import Session
 
 import mlrun
-import tests.api.db.test_functions
+import services.api.tests.unit.db.test_functions
 from mlrun.common.schemas import ModelEndpointV2
-from server.api.db.base import DBInterface
-from server.api.db.sqldb.models import ModelEndpoint
+from services.api.db.base import DBInterface
+from services.api.db.sqldb.models import ModelEndpoint
 
 
 def _store_function(
@@ -28,7 +28,7 @@ def _store_function(
     function_name: str = "function-1",
     project: str = "project-1",
 ) -> str:
-    function = tests.api.db.test_functions._generate_function(
+    function = services.api.tests.unit.db.test_functions._generate_function(
         function_name=function_name, project=project
     )
     function_hash_key = db.store_function(
