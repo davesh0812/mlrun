@@ -23,7 +23,6 @@ from sqlalchemy import (
 
 from mlrun.common.schemas.model_monitoring import (
     EventFieldType,
-    FileTargetKind,
 )
 from mlrun.utils.db import BaseModel
 

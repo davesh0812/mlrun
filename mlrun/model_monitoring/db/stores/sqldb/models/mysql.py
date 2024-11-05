@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import sqlalchemy.dialects.mysql
-from sqlalchemy import Column, ForeignKey, String
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy import Column
+from sqlalchemy.ext.declarative import declarative_base
 
 from mlrun.common.schemas.model_monitoring import (
     EventFieldType,
