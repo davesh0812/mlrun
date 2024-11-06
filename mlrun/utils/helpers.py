@@ -955,7 +955,8 @@ def fill_function_hash(function_dict, tag=""):
 
 
 def fill_model_endpoint_hash(
-    model_endpoint: mlrun.common.schemas.ModelEndpointV2, created_time: str
+    model_endpoint: mlrun.common.schemas.ModelEndpointV2,
+    created_time: typing.Union[str, datetime],
 ) -> str:
     """
     Fill the model endpoint uid field in the model endpoint object and returns it.
@@ -971,6 +972,11 @@ def fill_model_endpoint_hash(
     model_tag = model_endpoint.spec.model_tag
     function_name = model_endpoint.spec.function_name
     project = model_endpoint.metadata.project
+    created_time = (
+        created_time
+        if isinstance(created_time, str)
+        else created_time.isoformat(sep=" ", timespec="microseconds")
+    )
 
     unique_string = f"{name}_{model_tag}_{function_name}_{project}_{created_time}"
     uid = hashlib.sha1(unique_string.encode("utf-8")).hexdigest()

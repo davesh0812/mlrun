@@ -3257,7 +3257,7 @@ class SQLDB(DBInterface):
         )
 
     def delete_project_related_resources(self, session: Session, name: str):
-        self.delete_model_endpoints(session, project=name, names=[])
+        self.delete_model_endpoints(session, project=name)
         self._delete_project_artifacts(session, project=name)
         self._delete_project_logs(session, name)
         self.delete_run_notifications(session, project=name)
@@ -6512,7 +6512,10 @@ class SQLDB(DBInterface):
             self._delete(session, ModelEndpoint, project=project, name=name)
 
     def delete_model_endpoints(
-        self, session: Session, project: str, names: typing.Union[str, list[str]]
+        self,
+        session: Session,
+        project: str,
+        names: typing.Optional[typing.Union[str, list[str]]] = None,
     ) -> None:
         logger.debug("Removing model endpoints from db", project=project, name=names)
 

@@ -488,7 +488,7 @@ def test_delete_model_endpoints(db: DBInterface, db_session: Session) -> None:
     assert db_session.query(ModelEndpoint).count() == 4
 
     db.delete_model_endpoints(
-        session=db_session, project=model_endpoint.metadata.project, names=[]
+        session=db_session, project=model_endpoint.metadata.project
     )
 
     assert db_session.query(ModelEndpoint.Label).count() == 0

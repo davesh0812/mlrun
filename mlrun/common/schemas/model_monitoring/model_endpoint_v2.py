@@ -81,7 +81,7 @@ class ModelEndpointV2Status(ObjectStatus, ModelEndpointParser):
     last_request: Optional[str] = ""
     drift_status: Optional[str] = ""
     avg_latency: Optional[float] = None
-    error_count: Optional[int] = None
+    error_count: Optional[int] = 0
     feature_stats: Optional[dict] = {}
     current_stats: Optional[dict] = {}
     drift_measures: Optional[dict] = {}

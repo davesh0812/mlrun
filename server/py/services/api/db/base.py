@@ -1186,7 +1186,10 @@ class DBInterface(ABC):
         pass
 
     def delete_model_endpoints(
-        self, session, project: str, names: typing.Union[str, list[str]]
+        self,
+        session,
+        project: str,
+        names: typing.Optional[typing.Union[str, list[str]]] = None,
     ) -> None:
         """
         Delete model endpoints across projects and names.
