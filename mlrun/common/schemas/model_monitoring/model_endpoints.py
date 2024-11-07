@@ -287,8 +287,8 @@ class ModelEndpointMonitoringMetric(BaseModel):
     full_name: Optional[str] = None
     kind: Optional[ResultKindApp] = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.full_name = _compose_full_name(
             project=self.project, app=self.app, name=self.name, type=self.type
         )

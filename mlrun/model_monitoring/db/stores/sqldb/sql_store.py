@@ -324,23 +324,6 @@ class SQLStoreBase(StoreBase):
             event[key] = datetime.datetime.fromisoformat(event[key])
         event[key] = event[key].astimezone(tz=datetime.timezone.utc)
 
-    @staticmethod
-    def _get_filter_criteria(
-        *,
-        table: sqlalchemy.orm.decl_api.DeclarativeMeta,
-        endpoint_id: str,
-        application_name: typing.Optional[str] = None,
-    ) -> list[BinaryExpression]:
-        """
-        Return the filter criteria for the given endpoint_id and application_name.
-        Note: the table object must include the relevant columns:
-        `endpoint_id` and `application_name`.
-        """
-        criteria = [table.endpoint_id == endpoint_id]
-        if application_name is not None:
-            criteria.append(table.application_name == application_name)
-        return criteria
-
     def _create_tables_if_not_exist(self):
         self._init_tables()
 
