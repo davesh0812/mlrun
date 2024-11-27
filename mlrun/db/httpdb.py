@@ -556,10 +556,6 @@ class HTTPRunDB(RunDBInterface):
                 server_cfg.get("external_platform_tracking")
                 or config.external_platform_tracking
             )
-            config.model_endpoint_monitoring.endpoint_store_connection = (
-                server_cfg.get("model_endpoint_monitoring_endpoint_store_connection")
-                or config.model_endpoint_monitoring.endpoint_store_connection
-            )
             config.model_endpoint_monitoring.tsdb_connection = (
                 server_cfg.get("model_monitoring_tsdb_connection")
                 or config.model_endpoint_monitoring.tsdb_connection
@@ -3387,35 +3383,27 @@ class HTTPRunDB(RunDBInterface):
 
     def create_model_endpoint(
         self,
-        project: str,
-        endpoint_id: str,
-        model_endpoint: Union[
-            mlrun.model_monitoring.model_endpoint.ModelEndpoint, dict
-        ],
-    ):
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+    ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Creates a DB record with the given model_endpoint record.
 
-        :param project: The name of the project.
-        :param endpoint_id: The id of the endpoint.
         :param model_endpoint: An object representing the model endpoint.
         """
 
-        if isinstance(
-            model_endpoint, mlrun.model_monitoring.model_endpoint.ModelEndpoint
-        ):
-            model_endpoint = model_endpoint.to_dict()
-
-        path = f"projects/{project}/model-endpoints/{endpoint_id}"
-        self.api_call(
+        path = f"projects/{model_endpoint.metadata.project}/model-endpoints/{model_endpoint.metadata.name}"
+        response = self.api_call(
             method="POST",
             path=path,
-            body=dict_to_json(model_endpoint),
+            body=dict_to_json(model_endpoint.dict()),
         )
+        return mlrun.common.schemas.ModelEndpoint(**response.json())
 
     def delete_model_endpoint(
         self,
+        name: str,
         project: str,
+        function_name: str,
         endpoint_id: str,
     ):
         """
@@ -3425,24 +3413,30 @@ class HTTPRunDB(RunDBInterface):
         :param endpoint_id: The id of the endpoint
         """
 
-        path = f"projects/{project}/model-endpoints/{endpoint_id}"
+        path = f"projects/{project}/model-endpoints/{name}"
         self.api_call(
             method="DELETE",
             path=path,
+            params={
+                "function_name": function_name,
+                "endpoint_id": endpoint_id,
+            },
         )
 
     def list_model_endpoints(
         self,
         project: str,
-        model: Optional[str] = None,
-        function: Optional[str] = None,
+        name: Optional[str] = None,
+        function_name: Optional[str] = None,
+        model_name: Optional[str] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
-        start: str = "now-1h",
-        end: str = "now",
-        metrics: Optional[list[str]] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        tsdb_metrics: bool = True,
         top_level: bool = False,
         uids: Optional[list[str]] = None,
-    ) -> list[mlrun.model_monitoring.model_endpoint.ModelEndpoint]:
+        latest_only: bool = False,
+    ) -> mlrun.common.schemas.ModelEndpointList:
         """
         Returns a list of `ModelEndpoint` objects. Each `ModelEndpoint` object represents the current state of a
         model endpoint. This functions supports filtering by the following parameters:
@@ -3485,35 +3479,30 @@ class HTTPRunDB(RunDBInterface):
             method="GET",
             path=path,
             params={
-                "model": model,
-                "function": function,
+                "model_name": model_name,
+                "function_name": function_name,
                 "label": labels,
-                "start": start,
-                "end": end,
-                "metric": metrics or [],
+                "start": datetime_to_iso(start),
+                "end": datetime_to_iso(end),
+                "tsdb_metrics": tsdb_metrics,
                 "top-level": top_level,
                 "uid": uids,
+                "latest_only": latest_only,
             },
         )
 
-        # Generate a list of a model endpoint dictionaries
-        model_endpoints = response.json()["endpoints"]
-        if model_endpoints:
-            return [
-                mlrun.model_monitoring.model_endpoint.ModelEndpoint.from_dict(obj)
-                for obj in model_endpoints
-            ]
-        return []
+        return mlrun.common.schemas.ModelEndpointList(**response.json())
 
     def get_model_endpoint(
         self,
+        name: str,
         project: str,
-        endpoint_id: str,
-        start: Optional[str] = None,
-        end: Optional[str] = None,
-        metrics: Optional[list[str]] = None,
+        function_name: Optional[str] = None,
+        # TODO: function_tag
+        endpoint_id: Optional[str] = None,
+        tsdb_metrics: bool = True,
         feature_analysis: bool = False,
-    ) -> mlrun.model_monitoring.model_endpoint.ModelEndpoint:
+    ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Returns a single `ModelEndpoint` object with additional metrics and feature related data.
 
@@ -3538,28 +3527,28 @@ class HTTPRunDB(RunDBInterface):
         :returns: A `ModelEndpoint` object.
         """
 
-        path = f"projects/{project}/model-endpoints/{endpoint_id}"
+        path = f"projects/{project}/model-endpoints/{name}"
         response = self.api_call(
             method="GET",
             path=path,
             params={
-                "start": start,
-                "end": end,
-                "metric": metrics or [],
+                "function_name": function_name,
+                "endpoint_id": endpoint_id,
+                "tsdb_metrics": tsdb_metrics,
                 "feature_analysis": feature_analysis,
             },
         )
 
-        return mlrun.model_monitoring.model_endpoint.ModelEndpoint.from_dict(
-            response.json()
-        )
+        return mlrun.common.schemas.ModelEndpoint(**response.json())
 
     def patch_model_endpoint(
         self,
+        name: str,
         project: str,
-        endpoint_id: str,
         attributes: dict,
-    ):
+        function_name: Optional[str] = None,
+        endpoint_id: Optional[str] = None,
+    ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Updates model endpoint with provided attributes.
 
@@ -3570,31 +3559,26 @@ class HTTPRunDB(RunDBInterface):
             a valid numerical type such as int or float. More details about the model endpoint available attributes can
             be found under :py:class:`~mlrun.common.schemas.ModelEndpoint`.
 
-        Example::
-
-            # Generate current stats for two features
-            current_stats = {'tvd_sum': 2.2,
-                             'tvd_mean': 0.5,
-                             'hellinger_sum': 3.6,
-                             'hellinger_mean': 0.9,
-                             'kld_sum': 24.2,
-                             'kld_mean': 6.0,
-                             'f1': {'tvd': 0.5, 'hellinger': 1.0, 'kld': 6.4},
-                             'f2': {'tvd': 0.5, 'hellinger': 1.0, 'kld': 6.5}}
-
-            # Create attributes dictionary according to the required format
-            attributes = {`current_stats`: json.dumps(current_stats),
-                          `drift_status`: "DRIFT_DETECTED"}
-
         """
-
-        attributes = {"attributes": _as_json(attributes)}
-        path = f"projects/{project}/model-endpoints/{endpoint_id}"
-        self.api_call(
+        attributes_keys = list(attributes.keys())
+        attributes["name"] = name or ""
+        attributes["uid"] = endpoint_id or ""
+        attributes["project"] = project or ""
+        model_endpoint = mlrun.common.schemas.ModelEndpoint.from_flat_dict(attributes)
+        params = {
+            "function_name": function_name,
+            "endpoint_id": endpoint_id,
+            "attributes_keys": attributes_keys,
+        }
+        path = f"projects/{project}/model-endpoints/{name}"
+        response = self.api_call(
             method="PATCH",
             path=path,
-            params=attributes,
+            params=params,
+            body=dict_to_json(model_endpoint.dict()),
         )
+
+        return mlrun.common.schemas.ModelEndpoint(**response.json())
 
     def update_model_monitoring_controller(
         self,

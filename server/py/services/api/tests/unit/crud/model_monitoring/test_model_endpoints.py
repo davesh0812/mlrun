@@ -50,11 +50,7 @@ def _patch_external_resources() -> Iterator[None]:
             "mlrun.datastore.store_resources.get_store_resource",
             return_value=ModelArtifact(),
         ):
-            with patch(
-                "mlrun.model_monitoring.db.get_store_object",
-                autospec=True,
-            ):
-                yield
+            yield
 
 
 @pytest.fixture()

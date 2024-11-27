@@ -45,10 +45,6 @@ from mlrun.model_monitoring.applications import (
 from mlrun.model_monitoring.applications.histogram_data_drift import (
     HistogramDataDriftApplication,
 )
-from mlrun.model_monitoring.db._stats import (
-    ModelMonitoringCurrentStatsFile,
-    ModelMonitoringDriftMeasuresFile,
-)
 from mlrun.utils.logger import Logger
 from tests.system.base import TestMLRunSystem
 
@@ -110,7 +106,6 @@ class _V3IORecordsChecker:
             project_name, "./", allow_cross_project=True
         )
         project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -118,10 +113,6 @@ class _V3IORecordsChecker:
         cls._tsdb_storage = mlrun.model_monitoring.get_tsdb_connector(
             project=project_name,
             tsdb_connection_string=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
-        )
-        cls._kv_storage = mlrun.model_monitoring.get_store_object(
-            project=project_name,
-            store_connection_string=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
         )
         cls._v3io_container = f"users/pipelines/{project_name}/monitoring-apps/"
 
@@ -581,17 +572,6 @@ class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
             except Exception:
                 pass
 
-    @classmethod
-    def _get_model_endpoint_id(cls) -> str:
-        endpoints = cls.run_db.list_model_endpoints(project=cls.project_name)
-        assert endpoints and len(endpoints) == 1, "Expects a single model endpoint"
-        endpoint = typing.cast(mlrun.model_monitoring.ModelEndpoint, endpoints[0])
-        assert endpoint.spec.stream_path == mlrun.model_monitoring.get_stream_path(
-            project=cls.project_name,
-            stream_uri=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
-        ), "The model endpoint stream path is different than expected"
-        return endpoint.metadata.uid
-
     def _test_artifacts(self, ep_id: str) -> None:
         for app_data in self.apps_data:
             if app_data.artifacts:
@@ -612,22 +592,19 @@ class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
                     artifact.to_dataitem().get()
 
     @classmethod
-    def _test_model_endpoint_stats(cls, ep_id: str) -> None:
-        cls._logger.debug("Checking model endpoint", ep_id=ep_id)
-        ep = cls.run_db.get_model_endpoint(project=cls.project_name, endpoint_id=ep_id)
-        assert ep.status.feature_stats.keys() == set(
-            ep.spec.feature_names
+    def _test_model_endpoint_stats(
+        cls, mep: mlrun.common.schemas.ModelEndpoint
+    ) -> None:
+        cls._logger.debug("Checking model endpoint", ep_id=mep.metadata.uid)
+        assert mep.spec.feature_stats.keys() == set(
+            mep.spec.feature_names
         ), "The endpoint's feature stats keys are not the same as the feature names"
-        ep_current_stats, _ = ModelMonitoringCurrentStatsFile.from_model_endpoint(
-            ep
-        ).read()
+        ep_current_stats = mep.status.current_stats
 
-        ep_drift_measures, _ = ModelMonitoringDriftMeasuresFile.from_model_endpoint(
-            ep
-        ).read()
+        ep_drift_measures = mep.status.drift_measures
 
         assert set(ep_current_stats.keys()) == set(
-            ep.status.feature_stats.keys()
+            mep.spec.feature_stats.keys()
         ), "The endpoint's current stats is different than expected"
 
         assert ep_drift_measures, "The general drift status is empty"
@@ -645,7 +622,7 @@ class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
             "tvd",
         }, "The drift metrics are not as expected"
         assert set(drift_table.index) == set(
-            ep.spec.feature_names
+            mep.spec.feature_names
         ), "The feature names are not as expected"
 
         assert (
@@ -716,21 +693,26 @@ class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
         # wait for the completed window to be processed
         time.sleep(1.2 * self.app_interval_seconds)
 
-        ep_id = self._get_model_endpoint_id()
+        mep = mlrun.db.get_run_db().get_model_endpoint(
+            name=f"{self.model_name}_{with_training_set}",
+            project=self.project.name,
+            function_name="model-serving",
+            feature_analysis=True,
+            tsdb_metrics=True,
+        )
 
         self._test_v3io_records(
-            ep_id=ep_id,
+            ep_id=mep.metadata.uid,
             inputs=inputs,
             outputs=outputs,
             last_request=last_request,
             error_count=self.error_count,
         )
-        self._test_predictions_table(ep_id)
-
-        self._test_artifacts(ep_id=ep_id)
-        self._test_api(ep_id=ep_id)
+        self._test_predictions_table(mep.metadata.uid)
+        self._test_artifacts(ep_id=mep.metadata.uid)
+        self._test_api(ep_id=mep.metadata.uid)
         if _DefaultDataDriftAppData in self.apps_data:
-            self._test_model_endpoint_stats(ep_id=ep_id)
+            self._test_model_endpoint_stats(mep=mep)
         self._test_error_alert()
 
 
@@ -878,7 +860,6 @@ class TestModelMonitoringInitialize(TestMLRunSystem):
                 image=self.image or "mlrun/mlrun"
             )
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -1261,7 +1242,6 @@ class TestMonitoredServings(TestMLRunSystem):
     def test_different_kind_of_serving(self) -> None:
         self.function_name = "serving-router"
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -1274,11 +1254,10 @@ class TestMonitoredServings(TestMLRunSystem):
 
         futures = []
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            self.db = mlrun.model_monitoring.get_store_object(
-                project=self.project_name,
-                store_connection_string=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
+            endpoints_list = mlrun.db.get_run_db().list_model_endpoints(
+                project=self.project_name
             )
-            endpoints = self.db.list_model_endpoints()
+            endpoints = endpoints_list.endpoints
             assert len(endpoints) == 7
             for endpoint in endpoints:
                 future = executor.submit(
@@ -1308,13 +1287,8 @@ class TestMonitoredServings(TestMLRunSystem):
     def test_tracking(self) -> None:
         self.function_name = "serving-1"
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
-        )
-        self.db = mlrun.model_monitoring.get_store_object(
-            project=self.project_name,
-            store_connection_string=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
         )
         self.project.enable_model_monitoring(
             image=self.image or "mlrun/mlrun",
@@ -1330,13 +1304,19 @@ class TestMonitoredServings(TestMLRunSystem):
             )
             self._deploy_model_serving(**model_dict, enable_tracking=False)
 
-        endpoints = self.db.list_model_endpoints()
+        endpoints_list = mlrun.db.get_run_db().list_model_endpoints(
+            project=self.project_name
+        )
+        endpoints = endpoints_list.endpoints
         assert len(endpoints) == 0
 
         for model_name, model_dict in self.test_models_tracking.items():
             self._deploy_model_serving(**model_dict, enable_tracking=True)
 
-        endpoints = self.db.list_model_endpoints()
+        endpoints_list = mlrun.db.get_run_db().list_model_endpoints(
+            project=self.project_name
+        )
+        endpoints = endpoints_list.endpoints
         assert len(endpoints) == 1
         endpoint = endpoints[0]
         assert (
@@ -1362,7 +1342,10 @@ class TestMonitoredServings(TestMLRunSystem):
         for model_name, model_dict in self.test_models_tracking.items():
             self._deploy_model_serving(**model_dict, enable_tracking=False)
 
-        endpoints = self.db.list_model_endpoints()
+        endpoints_list = mlrun.db.get_run_db().list_model_endpoints(
+            project=self.project_name
+        )
+        endpoints = endpoints_list.endpoints
         assert len(endpoints) == 1
         endpoint = endpoints[0]
         assert (
@@ -1385,7 +1368,6 @@ class TestMonitoredServings(TestMLRunSystem):
     def test_enable_model_monitoring_after_failure(self) -> None:
         self.function_name = "test-function"
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )

@@ -168,6 +168,9 @@ class V3IOTSDBConnector(TSDBConnector):
         tsdb_batching_max_events: int = 1000,
         tsdb_batching_timeout_secs: int = 30,
         sample_window: int = 10,
+        aggregate_windows: list[str] = ["5m", "1h"],
+        aggregate_period: str = "1m",
+        **kwarg,
     ):
         """
         Apply TSDB steps on the provided monitoring graph. Throughout these steps, the graph stores live data of
@@ -179,6 +182,38 @@ class V3IOTSDBConnector(TSDBConnector):
         - custom_metrics (user-defined metrics)
         """
 
+        # Calculate number of predictions and average latency
+        def apply_storey_aggregations():
+            # Calculate number of predictions for each window (5 min and 1 hour by default)
+            graph.add_step(
+                class_name="storey.AggregateByKey",
+                aggregates=[
+                    {
+                        "name": EventFieldType.LATENCY,
+                        "column": EventFieldType.LATENCY,
+                        "operations": ["count", "avg"],
+                        "windows": aggregate_windows,
+                        "period": aggregate_period,
+                    }
+                ],
+                name=EventFieldType.LATENCY,
+                after="MapFeatureNames",
+                step_name="Aggregates",
+                table=".",
+                key_field=EventFieldType.ENDPOINT_ID,
+            )
+            # Calculate average latency time for each window (5 min and 1 hour by default)
+            graph.add_step(
+                class_name="storey.Rename",
+                mapping={
+                    "latency_count_5m": mm_schemas.EventLiveStats.PREDICTIONS_COUNT_5M,
+                    "latency_count_1h": mm_schemas.EventLiveStats.PREDICTIONS_COUNT_1H,
+                },
+                name="Rename",
+                after=EventFieldType.LATENCY,
+            )
+
+        apply_storey_aggregations()
         # Write latency per prediction, labeled by endpoint ID only
         graph.add_step(
             "storey.TSDBTarget",
@@ -853,6 +888,7 @@ class V3IOTSDBConnector(TSDBConnector):
         endpoint_ids = (
             endpoint_ids if isinstance(endpoint_ids, list) else [endpoint_ids]
         )
+        start = start or (mlrun.utils.datetime_now() - timedelta(hours=24))
         start, end = self._get_start_end(start, end)
         df = self._get_records(
             table=mm_schemas.FileTargetKind.PREDICTIONS,
@@ -864,4 +900,10 @@ class V3IOTSDBConnector(TSDBConnector):
         )
         if not df.empty:
             df.dropna(inplace=True)
+            df.rename(
+                columns={
+                    f"avg({mm_schemas.EventFieldType.LATENCY})": f"avg_{mm_schemas.EventFieldType.LATENCY}"
+                },
+                inplace=True,
+            )
         return df.reset_index(drop=True)

@@ -3330,7 +3330,6 @@ class MlrunProject(ModelObj):
     def set_model_monitoring_credentials(
         self,
         access_key: Optional[str] = None,
-        endpoint_store_connection: Optional[str] = None,
         stream_path: Optional[str] = None,
         tsdb_connection: Optional[str] = None,
         replace_creds: bool = False,
@@ -3341,7 +3340,6 @@ class MlrunProject(ModelObj):
         model monitoring or serving function.
 
         :param access_key:                Model monitoring access key for managing user permissions.
-        :param endpoint_store_connection: Endpoint store connection string. By default, None. Options:
 
                                           * None - will be set from the system configuration.
                                           * v3io - for v3io endpoint store, pass `v3io` and the system will generate the
@@ -3374,7 +3372,6 @@ class MlrunProject(ModelObj):
             project=self.name,
             credentials={
                 "access_key": access_key,
-                "endpoint_store_connection": endpoint_store_connection,
                 "stream_path": stream_path,
                 "tsdb_connection": tsdb_connection,
             },

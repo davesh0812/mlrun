@@ -71,30 +71,20 @@ def test_fqn_parsing(
 @pytest.mark.parametrize(
     ("flat_mep", "expectation"),
     [
-        ({"project": "proj-1", "uid": "ok_30"}, does_not_raise()),
-        (
-            {},
-            pytest.raises(
-                pydantic.ValidationError,
-                match=re.escape(
-                    "2 validation errors for ModelEndpointMetadata\nproject\n  field required "
-                    "(type=value_error.missing)\nuid\n  field required (type=value_error.missing)"
-                ),
-            ),
-        ),
+        ({"project": "proj-1", "uid": "ok_30", "name": "test"}, does_not_raise()),
         (
             {"project": "im-fine-10"},
             pytest.raises(
                 pydantic.ValidationError,
                 match=(
                     re.escape(
-                        "1 validation error for ModelEndpointMetadata\nuid\n  field required (type=value_error.missing)"
+                        "1 validation error for ModelEndpointMetadata\nname\n  field required (type=value_error.missing)"
                     )
                 ),
             ),
         ),
         (
-            {"project": "im-fine-10", "uid": "xx' OR '1'='1"},
+            {"project": "im-fine-10", "uid": "xx' OR '1'='1", "name": "test"},
             pytest.raises(
                 pydantic.ValidationError,
                 match=(

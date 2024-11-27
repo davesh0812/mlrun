@@ -644,9 +644,12 @@ class ServingRuntime(RemoteRuntime):
 
     def _get_serving_spec(self):
         function_name_uri_map = {f.name: f.uri(self) for f in self.spec.function_refs}
-
         serving_spec = {
+            "function_name": self.metadata.name,
+            "function_tag": self.metadata.tag,
             "function_uri": self._function_uri(),
+            "function_hash": self.metadata.hash,
+            "project": self.metadata.project,
             "version": "v2",
             "parameters": self.spec.parameters,
             "graph": self.spec.graph.to_dict() if self.spec.graph else {},

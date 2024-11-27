@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import asyncio
-import json
+import typing
 from collections.abc import Coroutine
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -29,12 +29,13 @@ import mlrun.common.schemas.model_monitoring.constants as mm_constants
 import mlrun.common.schemas.model_monitoring.model_endpoints as mm_endpoints
 import mlrun.model_monitoring
 import mlrun.utils.helpers
-from mlrun.errors import MLRunConflictError
+from mlrun import MLRunInvalidArgumentError
 from mlrun.utils import logger
 
 import framework.api.deps
 import framework.utils.auth.verifier
 import services.api.crud
+from framework.api import deps
 
 router = APIRouter(prefix="/projects/{project}/model-endpoints")
 
@@ -45,12 +46,11 @@ EndpointIDAnnotation = Annotated[
 
 
 @router.post(
-    "/{endpoint_id}",
+    "/{name}",
+    status_code=HTTPStatus.CREATED.value,
     response_model=schemas.ModelEndpoint,
 )
 async def create_model_endpoint(
-    project: ProjectAnnotation,
-    endpoint_id: EndpointIDAnnotation,
     model_endpoint: schemas.ModelEndpoint,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
@@ -58,8 +58,6 @@ async def create_model_endpoint(
     """
     Create a DB record of a given `ModelEndpoint` object.
 
-    :param project:         The name of the project.
-    :param endpoint_id:     The unique id of the model endpoint.
     :param model_endpoint:  Model endpoint object to record in DB.
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database. When creating a new model
@@ -68,25 +66,30 @@ async def create_model_endpoint(
 
     :return: A Model endpoint object.
     """
-
+    logger.info(
+        "Creating Model Endpoint record",
+        model_endpoint_metadata=model_endpoint.metadata,
+    )
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             resource_type=schemas.AuthorizationResourceTypes.model_endpoint,
-            project_name=project,
-            resource_name=endpoint_id,
+            project_name=model_endpoint.metadata.project,
+            resource_name=model_endpoint.metadata.name,
             action=schemas.AuthorizationAction.store,
             auth_info=auth_info,
         )
     )
 
-    if project != model_endpoint.metadata.project:
-        raise MLRunConflictError(
-            f"Can't store endpoint of project {model_endpoint.metadata.project} into project {project}"
-        )
-    if endpoint_id != model_endpoint.metadata.uid:
-        raise MLRunConflictError(
-            f"Mismatch between endpoint_id {endpoint_id} and ModelEndpoint.metadata.uid {model_endpoint.metadata.uid}."
-            f"\nMake sure the supplied function_uri, and model are configured as intended"
+    if (
+        not model_endpoint.metadata.project
+        or not model_endpoint.metadata.name
+        or not model_endpoint.spec.function_name
+        or not model_endpoint.spec.model_name
+        or not model_endpoint.spec.model_uid
+        or not model_endpoint.spec.function_uid
+    ):
+        raise MLRunInvalidArgumentError(
+            "Model endpoint must have project, name, function_name, model_name, model_uid and function_uid"
         )
 
     return await run_in_threadpool(
@@ -97,19 +100,25 @@ async def create_model_endpoint(
 
 
 @router.patch(
-    "/{endpoint_id}",
+    "/{name}",
     response_model=schemas.ModelEndpoint,
 )
 async def patch_model_endpoint(
+    name: str,
     project: ProjectAnnotation,
-    endpoint_id: EndpointIDAnnotation,
-    attributes: Optional[str] = None,
+    model_endpoint: schemas.ModelEndpoint,
+    attributes_keys: list[str] = Query(None),
+    function_name: Optional[str] = Query(None),
+    endpoint_id: Optional[EndpointIDAnnotation] = Query(None),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
+    db_session: Session = Depends(framework.api.deps.get_db_session),
 ) -> schemas.ModelEndpoint:
     """
     Update a DB record of a given `ModelEndpoint` object.
 
+    :param name:          The model endpoint name.
     :param project:       The name of the project.
+    :param function_name: The name of the function.
     :param endpoint_id:   The unique id of the model endpoint.
     :param attributes:    Attributes that will be updated. The input is provided in a json structure that will be
                           converted into a dictionary before applying the patch process. Note that the keys of
@@ -121,54 +130,65 @@ async def patch_model_endpoint(
 
     :param auth_info:     The auth info of the request.
 
-    :return: A Model endpoint object.
+    :return: A Model endpoint object without operative data.
     """
+
+    logger.info(
+        "Patching Model Endpoint record",
+        model_endpoint=model_endpoint,
+        attributes_keys=attributes_keys,
+    )
 
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             resource_type=schemas.AuthorizationResourceTypes.model_endpoint,
             project_name=project,
-            resource_name=endpoint_id,
+            resource_name=name,
             action=schemas.AuthorizationAction.update,
             auth_info=auth_info,
         )
     )
+    attributes = {key: model_endpoint.get(key) for key in attributes_keys}
 
-    if not attributes:
-        raise mlrun.errors.MLRunNotFoundError(
-            f"No attributes provided for patching the model endpoint {endpoint_id}",
-        )
     return await run_in_threadpool(
         services.api.crud.ModelEndpoints().patch_model_endpoint,
+        name=name,
         project=project,
+        function_name=function_name,
         endpoint_id=endpoint_id,
-        attributes=json.loads(attributes),
+        attributes=attributes,
+        db_session=db_session,
     )
 
 
 @router.delete(
-    "/{endpoint_id}",
+    "/{name}",
     status_code=HTTPStatus.NO_CONTENT.value,
 )
 async def delete_model_endpoint(
     project: ProjectAnnotation,
-    endpoint_id: EndpointIDAnnotation,
+    name: str,
+    function_name: Optional[str] = Query(None),
+    endpoint_id: typing.Optional[EndpointIDAnnotation] = "*",
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
+    db_session: Session = Depends(framework.api.deps.get_db_session),
 ):
     """
     Clears endpoint record from the DB based on endpoint_id.
 
+    :param name:          The model endpoint name.
     :param project:       The name of the project.
+    :param function_name: The name of the function.
     :param endpoint_id:   The unique id of the model endpoint.
     :param auth_info:     The auth info of the request.
-
+    :param db_session:    A session that manages the current dialog with the database.
     """
 
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             resource_type=schemas.AuthorizationResourceTypes.model_endpoint,
             project_name=project,
-            resource_name=endpoint_id,
+            resource_name=name,
             action=schemas.AuthorizationAction.delete,
             auth_info=auth_info,
         )
@@ -177,68 +197,83 @@ async def delete_model_endpoint(
     await run_in_threadpool(
         services.api.crud.ModelEndpoints().delete_model_endpoint,
         project=project,
+        name=name,
+        function_name=function_name,
+        db_session=db_session,
         endpoint_id=endpoint_id,
     )
 
 
+# pageination
 @router.get(
     "",
+    status_code=HTTPStatus.OK.value,
     response_model=schemas.ModelEndpointList,
 )
 async def list_model_endpoints(
     project: ProjectAnnotation,
-    model: Optional[str] = Query(None),
-    function: Optional[str] = Query(None),
+    name: str = Query(None),
+    model_name: str = Query(None),
+    function_name: str = Query(None),
     labels: list[str] = Query([], alias="label"),
-    start: str = Query(default="now-1h"),
-    end: str = Query(default="now"),
-    metrics: list[str] = Query([], alias="metric"),
+    start: Union[datetime, str] = Query(default=None),
+    end: Union[datetime, str] = Query(default=None),
     top_level: bool = Query(False, alias="top-level"),
+    tsdb_metrics: bool = Query(True, alias="tsdb_metrics"),
     uids: list[str] = Query(None, alias="uid"),
+    latest_only: bool = Query(False, alias="latest_only"),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
+    db_session: Session = Depends(deps.get_db_session),
+    # TODO : pageination
 ) -> schemas.ModelEndpointList:
-    """
-    Returns a list of endpoints of type 'ModelEndpoint', supports filtering by model, function, tag,
-    labels or top level. By default, when no filters are applied, all available endpoints for the given project will be
-    listed.
-
-    If uids are passed: will return `ModelEndpointList` of endpoints with uid in uids
-    Labels can be used to filter on the existence of a label:
-    api/projects/{project}/model-endpoints/?label=mylabel
-
-    Or on the value of a given label:
-    api/projects/{project}/model-endpoints/?label=mylabel=1
-
-    Multiple labels can be queried in a single request by either using "&" separator:
-    api/projects/{project}/model-endpoints/?label=mylabel=1&label=myotherlabel=2
-
-    Or by using a "," (comma) separator:
-    api/projects/{project}/model-endpoints/?label=mylabel=1,myotherlabel=2
-    Top level: if true will return only routers and endpoint that are NOT children of any router
-
-    :param auth_info: The auth info of the request.
-    :param project:   The name of the project.
-    :param model:     The name of the model to filter by.
-    :param function:  The name of the function to filter by.
-    :param labels:    A list of labels to filter by. Label filters work by either filtering a specific value of a label
-                      (i.e. list("key=value")) or by looking for the existence of a given key (i.e. "key").
-    :param metrics:   A list of real-time metrics to return for each endpoint. There are pre-defined real-time metrics
-                      for model endpoints such as predictions_per_second and latency_avg_5m but also custom metrics
-                      defined by the user. Please note that these metrics are stored in the time series DB and the
-                      results will be appeared under model_endpoint.spec.metrics of each endpoint.
-    :param start:     The start time of the metrics. Can be represented by a string containing an RFC 3339 time, a
-                      Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
-                      `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-    :param end:       The end time of the metrics. Can be represented by a string containing an RFC 3339 time, a
-                      Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
-                      `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-    :param top_level: If True will return only routers and endpoint that are NOT children of any router.
-    :param uids:      Will return `ModelEndpointList` of endpoints with uid in uids.
-
-    :return: An object of `ModelEndpointList` which is literally a list of model endpoints along with some metadata. To
-             get a standard list of model endpoints use ModelEndpointList.endpoints.
-    """
-
+    # """
+    # Returns a list of endpoints of type 'ModelEndpoint', supports filtering by model, function, tag,
+    # labels or top level. By default, when no filters are applied, all available endpoints for the given project will be
+    # listed.
+    #
+    # If uids are passed: will return `ModelEndpointList` of endpoints with uid in uids
+    # Labels can be used to filter on the existence of a label:
+    # api/projects/{project}/model-endpoints/?label=mylabel
+    #
+    # Or on the value of a given label:
+    # api/projects/{project}/model-endpoints/?label=mylabel=1
+    #
+    # Multiple labels can be queried in a single request by either using "&" separator:
+    # api/projects/{project}/model-endpoints/?label=mylabel=1&label=myotherlabel=2
+    #
+    # Or by using a "," (comma) separator:
+    # api/projects/{project}/model-endpoints/?label=mylabel=1,myotherlabel=2
+    # Top level: if true will return only routers and endpoint that are NOT children of any router
+    #
+    # :param auth_info: The auth info of the request.
+    # :param project:   The name of the project.
+    # :param model:     The name of the model to filter by.
+    # :param function:  The name of the function to filter by.
+    # :param labels:    A list of labels to filter by. Label filters work by either filtering a specific value of a label
+    #                   (i.e. list("key=value")) or by looking for the existence of a given key (i.e. "key").
+    # :param metrics:   A list of real-time metrics to return for each endpoint. There are pre-defined real-time metrics
+    #                   for model endpoints such as predictions_per_second and latency_avg_5m but also custom metrics
+    #                   defined by the user. Please note that these metrics are stored in the time series DB and the
+    #                   results will be appeared under model_endpoint.spec.metrics of each endpoint.
+    # :param start:     The start time of the metrics. Can be represented by a string containing an RFC 3339 time, a
+    #                   Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
+    #                   `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
+    # :param end:       The end time of the metrics. Can be represented by a string containing an RFC 3339 time, a
+    #                   Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
+    #                   `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
+    # :param top_level: If True will return only routers and endpoint that are NOT children of any router.
+    # :param uids:      Will return `ModelEndpointList` of endpoints with uid in uids.
+    #
+    # :return: An object of `ModelEndpointList` which is literally a list of model endpoints along with some metadata. To
+    #          get a standard list of model endpoints use ModelEndpointList.endpoints.
+    # """
+    if isinstance(start, str) or isinstance(end, str):
+        logger.warn(
+            "Received string for start or end time, this is deprecated and will be removed in 1.9.0,"
+            "please use datetime objects instead. We don't support relative time strings anymore.",
+            DeprecationWarning,
+        )
+        start, end = None, None
     await framework.utils.auth.verifier.AuthVerifier().query_project_permissions(
         project_name=project,
         action=schemas.AuthorizationAction.read,
@@ -248,14 +283,17 @@ async def list_model_endpoints(
     endpoints = await run_in_threadpool(
         services.api.crud.ModelEndpoints().list_model_endpoints,
         project=project,
-        model=model,
-        function=function,
+        name=name,
+        model_name=model_name,
+        function_name=function_name,
         labels=labels,
-        metrics=metrics,
         start=start,
         end=end,
         top_level=top_level,
+        tsdb_metrics=tsdb_metrics,
         uids=uids,
+        latest_only=latest_only,
+        db_session=db_session,
     )
     allowed_endpoints = await framework.utils.auth.verifier.AuthVerifier().filter_project_resources_by_permissions(
         schemas.AuthorizationResourceTypes.model_endpoint,
@@ -268,17 +306,19 @@ async def list_model_endpoints(
     )
 
     endpoints.endpoints = allowed_endpoints
+
+    # print("endpoints", endpoints[0].)
     return endpoints
 
 
 async def _verify_model_endpoint_read_permission(
-    *, project: str, endpoint_id: str, auth_info: schemas.AuthInfo
+    *, project: str, name: str, auth_info: schemas.AuthInfo
 ) -> None:
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             schemas.AuthorizationResourceTypes.model_endpoint,
             project_name=project,
-            resource_name=endpoint_id,
+            resource_name=name,
             action=schemas.AuthorizationAction.read,
             auth_info=auth_info,
         )
@@ -286,56 +326,53 @@ async def _verify_model_endpoint_read_permission(
 
 
 @router.get(
-    "/{endpoint_id}",
+    "/{name}",
+    status_code=HTTPStatus.OK.value,
     response_model=schemas.ModelEndpoint,
 )
 async def get_model_endpoint(
+    name: str,
     project: ProjectAnnotation,
-    endpoint_id: EndpointIDAnnotation,
-    start: str = Query(default="now-1h"),
-    end: str = Query(default="now"),
-    metrics: list[str] = Query([], alias="metric"),
+    function_name: Optional[str] = Query(default=None),
+    endpoint_id: Optional[EndpointIDAnnotation] = None,
+    tsdb_metrics: bool = Query(default=True),
     feature_analysis: bool = Query(default=False),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
+    db_session: Session = Depends(deps.get_db_session),
 ) -> schemas.ModelEndpoint:
     """Get a single model endpoint object. You can apply different time series metrics that will be added to the
        result.
 
-
+    :param name:                       The model endpoint name.
     :param project:                    The name of the project
+    :param function_name:              The name of the function.
     :param endpoint_id:                The unique id of the model endpoint.
-    :param start:                      The start time of the metrics. Can be represented by a string containing an RFC
-                                       3339 time, a  Unix timestamp in milliseconds, a relative time (`'now'` or
-                                       `'now-[0-9]+[mhd]'`, where `m` = minutes, `h` = hours, `'d'` = days, and `'s'`
-                                       = seconds), or 0 for the earliest time.
-    :param end:                        The end time of the metrics. Can be represented by a string containing an RFC
-                                       3339 time, a  Unix timestamp in milliseconds, a relative time (`'now'` or
-                                       `'now-[0-9]+[mhd]'`, where `m` = minutes, `h` = hours, `'d'` = days, and `'s'`
-                                       = seconds), or 0 for the earliest time.
-    :param metrics:                    A list of real-time metrics to return for the model endpoint. There are
-                                       pre-defined real-time metrics for model endpoints such as predictions_per_second
-                                       and latency_avg_5m but also custom metrics defined by the user. Please note that
-                                       these metrics are stored in the time series DB and the results will be
-                                       appeared under model_endpoint.spec.metrics.
+    :param tsdb_metrics:               When True, the real-time metrics will be added to the output of the resulting
     :param feature_analysis:           When True, the base feature statistics and current feature statistics will
                                        be added to the output of the resulting object.
     :param auth_info:                  The auth info of the request
+    :param db_session:                 A session that manages the current dialog with the database.
 
     :return:  A `ModelEndpoint` object.
     """
     await _verify_model_endpoint_read_permission(
-        project=project, endpoint_id=endpoint_id, auth_info=auth_info
+        project=project, name=name, auth_info=auth_info
     )
 
     return await run_in_threadpool(
         services.api.crud.ModelEndpoints().get_model_endpoint,
+        name=name,
         project=project,
+        function_name=function_name,
         endpoint_id=endpoint_id,
-        metrics=metrics,
-        start=start,
-        end=end,
         feature_analysis=feature_analysis,
+        tsdb_metrics=tsdb_metrics,
+        db_session=db_session,
     )
+
+
+#######################################  METRICS EPs #############################################
+# TODO: support metrics by mep name
 
 
 @router.get(
@@ -358,7 +395,7 @@ async def get_model_endpoint_monitoring_metrics(
     :returns:           A list of the application metrics or/and results for this model endpoint.
     """
     await _verify_model_endpoint_read_permission(
-        project=project, endpoint_id=endpoint_id, auth_info=auth_info
+        project=project, name=endpoint_id, auth_info=auth_info
     )
     metrics: list[mm_endpoints.ModelEndpointMonitoringMetric] = []
     tasks: list[asyncio.Task] = []
@@ -425,7 +462,7 @@ async def _get_metrics_values_params(
     :return: _MetricsValuesParams object with the validated data.
     """
     await _verify_model_endpoint_read_permission(
-        project=project, endpoint_id=endpoint_id, auth_info=auth_info
+        project=project, name=endpoint_id, auth_info=auth_info
     )
     if start is None and end is None:
         end = mlrun.utils.helpers.datetime_now()

@@ -80,6 +80,7 @@ class EventFieldType:
     TIMESTAMP = "timestamp"
     # `endpoint_id` is deprecated as a field in the model endpoint schema since 1.3.1, replaced by `uid`.
     ENDPOINT_ID = "endpoint_id"
+    ENDPOINT_NAME = "endpoint_name"
     UID = "uid"
     ENDPOINT_TYPE = "endpoint_type"
     REQUEST_ID = "request_id"
@@ -148,6 +149,7 @@ class ApplicationEvent:
     START_INFER_TIME = "start_infer_time"
     END_INFER_TIME = "end_infer_time"
     ENDPOINT_ID = "endpoint_id"
+    ENDPOINT_NAME = "endpoint_name"
     OUTPUT_STREAM_URI = "output_stream_uri"
 
 
@@ -222,7 +224,6 @@ class TSDBTarget(MonitoringStrEnum):
 
 
 class ProjectSecretKeys:
-    ENDPOINT_STORE_CONNECTION = "MODEL_MONITORING_ENDPOINT_STORE_CONNECTION"
     ACCESS_KEY = "MODEL_MONITORING_ACCESS_KEY"
     STREAM_PATH = "STREAM_PATH"
     TSDB_CONNECTION = "TSDB_CONNECTION"
@@ -230,7 +231,6 @@ class ProjectSecretKeys:
     @classmethod
     def mandatory_secrets(cls):
         return [
-            cls.ENDPOINT_STORE_CONNECTION,
             cls.STREAM_PATH,
             cls.TSDB_CONNECTION,
         ]

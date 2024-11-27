@@ -215,7 +215,6 @@ class TestAlerts(TestMLRunSystem):
         """
         # enable model monitoring - deploy writer function
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )

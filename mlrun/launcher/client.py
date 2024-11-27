@@ -93,6 +93,9 @@ class ClientBaseLauncher(launcher.BaseLauncher, abc.ABC):
             meta = runtime.metadata
             db = runtime._get_db()
             db_func = db.get_function(meta.name, meta.project, meta.tag)
+            db_meta = db_func.get("metadata", {})
+            if db_meta:
+                runtime.metadata = mlrun.model.BaseMetadata.from_dict(db_meta)
             if db_func and "status" in db_func:
                 runtime.status = db_func["status"]
                 if (

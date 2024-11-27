@@ -557,6 +557,7 @@ class TaskStep(BaseStep):
             self._object.post_init(mode)
             if hasattr(self._object, "model_endpoint_uid"):
                 self.endpoint_uid = self._object.model_endpoint_uid
+                self.endpoint_name = self._object.name
 
     def respond(self):
         """mark this step as the responder.

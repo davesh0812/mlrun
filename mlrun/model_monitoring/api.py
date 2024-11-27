@@ -26,11 +26,11 @@ import mlrun.common.schemas.model_monitoring.constants as mm_constants
 import mlrun.feature_store
 import mlrun.model_monitoring.applications as mm_app
 import mlrun.serving
+from mlrun.common.schemas import ModelEndpoint
 from mlrun.data_types.infer import InferOptions, get_df_stats
 from mlrun.utils import datetime_now, logger
 
 from .helpers import update_model_endpoint_last_request
-from .model_endpoint import ModelEndpoint
 
 # A union of all supported dataset types:
 DatasetType = typing.Union[
@@ -79,18 +79,15 @@ def get_or_create_model_endpoint(
     :return: A ModelEndpoint object
     """
 
-    if not endpoint_id:
-        # Generate a new model endpoint id based on the project name and model name
-        endpoint_id = hashlib.sha1(
-            f"{project}_{model_endpoint_name}".encode()
-        ).hexdigest()
-
     if not db_session:
         # Generate a runtime database
         db_session = mlrun.get_run_db()
     try:
         model_endpoint = db_session.get_model_endpoint(
-            project=project, endpoint_id=endpoint_id
+            project=project,
+            name=model_endpoint_name,
+            endpoint_id=endpoint_id,
+            function_name=function_name,
         )
         # If other fields provided, validate that they are correspond to the existing model endpoint data
         _model_endpoint_validations(
@@ -357,32 +354,30 @@ def _generate_model_endpoint(
 
     :return `mlrun.model_monitoring.model_endpoint.ModelEndpoint` object.
     """
-    model_endpoint = ModelEndpoint()
-    model_endpoint.metadata.project = project
-    model_endpoint.metadata.uid = endpoint_id
-    if function_name:
-        model_endpoint.spec.function_uri = project + "/" + function_name
-    elif not context:
+    if not function_name and context:
+        function_name = context.to_dict()["spec"]["function"]  # uri ??
+    elif not function_name and not context:
         raise mlrun.errors.MLRunInvalidArgumentError(
             "Please provide either a function name or a valid MLRun context"
         )
-    else:
-        model_endpoint.spec.function_uri = context.to_dict()["spec"]["function"]
-    model_endpoint.spec.model_uri = model_path
-    model_endpoint.spec.model = model_endpoint_name
+
+    model_endpoint = ModelEndpoint()
+    model_endpoint.metadata.project = project
+    model_endpoint.metadata.name = model_endpoint_name
+    model_endpoint.spec.function_name = function_name
+    model_endpoint.spec.model_name = model_path  # TODO
+    # model_uid, function_uid # TODO
+
+    # model_endpoint.spec.model_uri = model_path
     model_endpoint.spec.model_class = "drift-analysis"
     model_endpoint.spec.monitoring_mode = monitoring_mode
     model_endpoint.status.first_request = model_endpoint.status.last_request = (
         datetime_now().isoformat()
-    )
-    if sample_set_statistics:
-        model_endpoint.status.feature_stats = sample_set_statistics
+    )  # TODO : check
+    # if sample_set_statistics:  # TODO : check
+    #     model_endpoint.status.feature_stats = sample_set_statistics
 
-    db_session.create_model_endpoint(
-        project=project, endpoint_id=endpoint_id, model_endpoint=model_endpoint
-    )
-
-    return db_session.get_model_endpoint(project=project, endpoint_id=endpoint_id)
+    return db_session.create_model_endpoint(model_endpoint=model_endpoint)
 
 
 def get_sample_set_statistics(

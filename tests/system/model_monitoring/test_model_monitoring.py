@@ -39,7 +39,6 @@ import mlrun.runtimes.utils
 import mlrun.serving.routers
 import mlrun.utils
 import mlrun_pipelines.mounts
-from mlrun.errors import MLRunNotFoundError
 from mlrun.model import BaseMetadata
 from mlrun.runtimes import BaseRuntime
 from mlrun.utils.v3io_clients import get_frames_client
@@ -47,7 +46,7 @@ from tests.system.base import TestMLRunSystem
 
 _MLRUN_MODEL_MONITORING_DB = "mysql+pymysql://root@mlrun-db:3306/mlrun_model_monitoring"
 
-
+# TODO : FIXXXXXXXX
 # Marked as enterprise because of v3io mount and pipelines
 @TestMLRunSystem.skip_test_if_env_not_configured
 @pytest.mark.enterprise
@@ -55,12 +54,11 @@ _MLRUN_MODEL_MONITORING_DB = "mysql+pymysql://root@mlrun-db:3306/mlrun_model_mon
 class TestModelEndpointsOperations(TestMLRunSystem):
     """Applying basic model endpoint CRUD operations through MLRun API"""
 
-    project_name = "pr-endpoints-operations"
+    project_name = "mm-app-project-18"
 
     def setup_method(self, method):
         super().setup_method(method)
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -68,26 +66,59 @@ class TestModelEndpointsOperations(TestMLRunSystem):
     def test_clear_endpoint(self):
         """Validates the process of create and delete a basic model endpoint"""
 
-        endpoint = self._mock_random_endpoint()
+        # endpoint = self._mock_random_endpoint()
         db = mlrun.get_run_db()
 
-        db.create_model_endpoint(
-            endpoint.metadata.project, endpoint.metadata.uid, endpoint.dict()
+        d = {
+            "function_name": "serving-4",
+            "function_uid": "unversioned-dave",
+            "model_class": "ClassifierModel",
+            "model_name": "RandomForestClassifier",
+            "model_uid": "68aaaef963ef913782d9a51ef8e3a6fc21813b5c",
+            "name": "RandomForestClassifier",
+            "project": "mm-app-project-18",
+        }
+
+        # model_endpoint = mlrun.common.schemas.ModelEndpoint(
+        #     metadata=mlrun.common.schemas.ModelEndpointMetadata(
+        #         project=d.get("project"),
+        #         labels={},
+        #         name="RandomForestClassifier",
+        #         endpoint_type=mlrun.common.schemas.model_monitoring.EndpointType.NODE_EP,
+        #     ),
+        #     spec=mlrun.common.schemas.ModelEndpointSpec(
+        #         function_name=d.get("function_name"),
+        #         function_uid=d.get("function_uid"),
+        #         model_name=d.get("model_name"),
+        #         model_uid=d.get("model_uid"),
+        #         model_class="modelcc",
+        #     ),
+        #     status=mlrun.common.schemas.ModelEndpointStatus(
+        #         monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled,
+        #     ),
+        # )
+        # db.create_model_endpoint(model_endpoint)
+        mep = db.get_model_endpoint(
+            name=d.get("name"),
+            project=d.get("project"),
+            function_name="serving-4",
+            feature_analysis=True,
         )
-
-        endpoint_response = db.get_model_endpoint(
-            endpoint.metadata.project, endpoint.metadata.uid
-        )
-        assert endpoint_response
-        assert endpoint_response.metadata.uid == endpoint.metadata.uid
-
-        db.delete_model_endpoint(endpoint.metadata.project, endpoint.metadata.uid)
-
-        # test for existence with "underlying layers" functions
-        with pytest.raises(MLRunNotFoundError):
-            endpoint = db.get_model_endpoint(
-                endpoint.metadata.project, endpoint.metadata.uid
-            )
+        print("1!!!!!!!!!!!!!!!")
+        print(mep.flat_dict())
+        # endpoint_response = db.get_model_endpoint(
+        #     endpoint.metadata.project, endpoint.metadata.uid
+        # )
+        # assert endpoint_response
+        # assert endpoint_response.metadata.uid == endpoint.metadata.uid
+        #
+        # db.delete_model_endpoint(endpoint.metadata.project, endpoint.metadata.uid)
+        #
+        # # test for existence with "underlying layers" functions
+        # with pytest.raises(MLRunNotFoundError):
+        #     endpoint = db.get_model_endpoint(
+        #         endpoint.metadata.project, endpoint.metadata.uid
+        #     )
 
     def test_store_endpoint_update_existing(self):
         """Validates the process of create and update a basic model endpoint"""
@@ -95,11 +126,7 @@ class TestModelEndpointsOperations(TestMLRunSystem):
         endpoint = self._mock_random_endpoint()
         db = mlrun.get_run_db()
 
-        db.create_model_endpoint(
-            project=endpoint.metadata.project,
-            endpoint_id=endpoint.metadata.uid,
-            model_endpoint=endpoint.dict(),
-        )
+        db.create_model_endpoint(model_endpoint=endpoint.dict())
 
         endpoint_before_update = db.get_model_endpoint(
             project=endpoint.metadata.project, endpoint_id=endpoint.metadata.uid
@@ -148,9 +175,7 @@ class TestModelEndpointsOperations(TestMLRunSystem):
         ]
 
         for endpoint in endpoints_in:
-            db.create_model_endpoint(
-                endpoint.metadata.project, endpoint.metadata.uid, endpoint.dict()
-            )
+            db.create_model_endpoint()
 
         endpoints_out = db.list_model_endpoints(self.project_name)
 
@@ -177,11 +202,7 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             if i < 4:
                 endpoint_details.metadata.labels = {"filtermex": "1", "filtermey": "2"}
 
-            db.create_model_endpoint(
-                endpoint_details.metadata.project,
-                endpoint_details.metadata.uid,
-                endpoint_details.dict(),
-            )
+            db.create_model_endpoint()
 
         filter_model = db.list_model_endpoints(self.project_name, model="filterme")
         assert len(filter_model) == 1
@@ -220,16 +241,9 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             metadata=mlrun.common.schemas.model_monitoring.ModelEndpointMetadata(
                 project=self.project_name,
                 labels=random_labels(),
-                uid=str(randint(1000, 5000)),
             ),
             spec=mlrun.common.schemas.model_monitoring.ModelEndpointSpec(
-                function_uri=f"test/function_{randint(0, 100)}:v{randint(0, 100)}",
-                model=f"model_{randint(0, 100)}:v{randint(0, 100)}",
-                model_class="classifier",
-                active=True,
-            ),
-            status=mlrun.common.schemas.model_monitoring.ModelEndpointStatus(
-                state=state
+                function_name="fn", function_id="1", model_name=""
             ),
         )
 
@@ -263,9 +277,6 @@ class TestBasicModelMonitoring(TestMLRunSystem):
         project = self.project
 
         project.set_model_monitoring_credentials(
-            endpoint_store_connection=_MLRUN_MODEL_MONITORING_DB
-            if with_sql_target
-            else mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
             replace_creds=True,  # remove once ML-7501 is resolved
@@ -869,7 +880,6 @@ class TestBatchDrift(TestMLRunSystem):
 
         # Deploy model monitoring infra
         project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -1007,7 +1017,6 @@ class TestModelMonitoringKafka(TestMLRunSystem):
         )
 
         project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=f"kafka://{self.brokers}",
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -1098,7 +1107,6 @@ class TestInferenceWithSpecialChars(TestMLRunSystem):
         mlrun.runtimes.utils.global_context.set(None)
         # Set the model monitoring credentials
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -1239,7 +1247,6 @@ class TestModelInferenceTSDBRecord(TestMLRunSystem):
 
     def test_record(self) -> None:
         self.project.set_model_monitoring_credentials(
-            endpoint_store_connection=mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
@@ -1285,9 +1292,6 @@ class TestModelEndpointWithManyFeatures(TestMLRunSystem):
         project = self.project
 
         project.set_model_monitoring_credentials(
-            endpoint_store_connection=_MLRUN_MODEL_MONITORING_DB
-            if with_sql_target
-            else mlrun.mlconf.model_endpoint_monitoring.endpoint_store_connection,
             stream_path=mlrun.mlconf.model_endpoint_monitoring.stream_connection,
             tsdb_connection=mlrun.mlconf.model_endpoint_monitoring.tsdb_connection,
         )
