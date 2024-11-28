@@ -29,6 +29,7 @@ import mlrun.model_monitoring.db
 import mlrun.serving.states
 import mlrun.utils
 from mlrun.common.schemas.model_monitoring.constants import (
+    EndpointType,
     EventFieldType,
     FileTargetKind,
     ProjectSecretKeys,
@@ -601,6 +602,7 @@ class MapFeatureNames(mlrun.feature_store.steps.MapClass):
             if not feature_names and self._infer_columns_from_data:
                 feature_names = self._infer_feature_names_from_data(event)
 
+            endpoint_type = int(endpoint_record.get(EventFieldType.ENDPOINT_TYPE))
             if not feature_names:
                 logger.warn(
                     "Feature names are not initialized, they will be automatically generated",
@@ -613,11 +615,12 @@ class MapFeatureNames(mlrun.feature_store.steps.MapClass):
                 # Update the endpoint record with the generated features
                 attributes_to_update[EventFieldType.FEATURE_NAMES] = feature_names
 
-                update_monitoring_feature_set(
-                    endpoint_record=endpoint_record,
-                    feature_names=feature_names,
-                    feature_values=feature_values,
-                )
+                if endpoint_type != EndpointType.ROUTER.value:
+                    update_monitoring_feature_set(
+                        endpoint_record=endpoint_record,
+                        feature_names=feature_names,
+                        feature_values=feature_values,
+                    )
 
             # Similar process with label columns
             if not label_columns and self._infer_columns_from_data:
@@ -632,11 +635,12 @@ class MapFeatureNames(mlrun.feature_store.steps.MapClass):
                     f"p{i}" for i, _ in enumerate(event[EventFieldType.PREDICTION])
                 ]
                 attributes_to_update[EventFieldType.LABEL_NAMES] = label_columns
-                update_monitoring_feature_set(
-                    endpoint_record=endpoint_record,
-                    feature_names=label_columns,
-                    feature_values=label_values,
-                )
+                if endpoint_type != EndpointType.ROUTER.value:
+                    update_monitoring_feature_set(
+                        endpoint_record=endpoint_record,
+                        feature_names=label_columns,
+                        feature_values=label_values,
+                    )
 
             self.label_columns[endpoint_id] = label_columns
             self.feature_names[endpoint_id] = feature_names
@@ -649,7 +653,6 @@ class MapFeatureNames(mlrun.feature_store.steps.MapClass):
             )
 
             # Update the endpoint type within the endpoint types dictionary
-            endpoint_type = int(endpoint_record.get(EventFieldType.ENDPOINT_TYPE))
             self.endpoint_type[endpoint_id] = endpoint_type
 
         # Update the first request time in the endpoint record

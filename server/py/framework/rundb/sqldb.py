@@ -47,15 +47,20 @@ class SQLRunDB(RunDBInterface):
         dsn,
         session=None,
     ):
-        self.session = session
+        self._session = session
         self.dsn = dsn
         self.db = None
 
     def connect(self, secrets=None):
-        if not self.session:
-            self.session = create_session()
         self.db = SQLDB(self.dsn)
         return self
+
+    @property
+    def session(self):
+        # If we were given a session - use it, otherwise we create a new one to keep a fresh snapshot of the db
+        if self._session:
+            return self._session
+        return create_session()
 
     def store_log(self, uid, project="", body=b"", append=False):
         return self._transform_db_error(
@@ -120,7 +125,7 @@ class SQLRunDB(RunDBInterface):
         self,
         name: Optional[str] = None,
         uid: Optional[Union[str, list[str]]] = None,
-        project: Optional[str] = None,
+        project: Optional[Union[str, list[str]]] = None,
         labels: Optional[Union[str, list[str]]] = None,
         state: Optional[mlrun.common.runtimes.constants.RunStates] = None,
         states: Optional[list[mlrun.common.runtimes.constants.RunStates]] = None,
@@ -164,6 +169,16 @@ class SQLRunDB(RunDBInterface):
             max_partitions=max_partitions,
             with_notifications=with_notifications,
         )
+
+    def paginated_list_runs(
+        self,
+        *args,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        **kwargs,
+    ):
+        raise NotImplementedError()
 
     async def del_run(self, uid, project=None, iter=None):
         return await self._transform_db_error(
@@ -239,6 +254,16 @@ class SQLRunDB(RunDBInterface):
         tree: Optional[str] = None,
         format_: mlrun.common.formatters.ArtifactFormat = mlrun.common.formatters.ArtifactFormat.full,
         limit: Optional[int] = None,
+        partition_by: Optional[
+            Union[mlrun.common.schemas.ArtifactPartitionByField, str]
+        ] = None,
+        rows_per_partition: int = 1,
+        partition_sort_by: Optional[
+            Union[mlrun.common.schemas.SortField, str]
+        ] = mlrun.common.schemas.SortField.updated,
+        partition_order: Union[
+            mlrun.common.schemas.OrderType, str
+        ] = mlrun.common.schemas.OrderType.desc,
     ):
         if category and isinstance(category, str):
             category = mlrun.common.schemas.ArtifactCategories(category)
@@ -335,7 +360,15 @@ class SQLRunDB(RunDBInterface):
         )
 
     def list_functions(
-        self, name=None, project=None, tag=None, labels=None, since=None, until=None
+        self,
+        name: Optional[str] = None,
+        project: Optional[Union[str, list[str]]] = None,
+        tag: Optional[str] = None,
+        kind: Optional[str] = None,
+        labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
+        format_: mlrun.common.formatters.FunctionFormat = mlrun.common.formatters.FunctionFormat.full,
+        since: Optional[datetime.datetime] = None,
+        until: Optional[datetime.datetime] = None,
     ):
         return self._transform_db_error(
             services.api.crud.Functions().list_functions,
@@ -343,10 +376,22 @@ class SQLRunDB(RunDBInterface):
             project=project,
             name=name,
             tag=tag,
+            kind=kind,
             labels=labels,
             since=since,
             until=until,
+            format_=format_,
         )
+
+    def paginated_list_functions(
+        self,
+        *args,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        **kwargs,
+    ):
+        raise NotImplementedError()
 
     def list_artifact_tags(
         self,
@@ -1241,6 +1286,29 @@ class SQLRunDB(RunDBInterface):
 
     def list_alert_templates(self):
         pass
+
+    def list_alert_activations(
+        self,
+        project: Optional[str] = None,
+        name: Optional[str] = None,
+        since: Optional[datetime.datetime] = None,
+        until: Optional[datetime.datetime] = None,
+        entity: Optional[str] = None,
+        severity: Optional[list[str]] = None,
+        entity_kind: Optional[str] = None,
+        event_kind: Optional[str] = None,
+    ):
+        raise NotImplementedError
+
+    def paginated_list_alert_activations(
+        self,
+        *args,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        **kwargs,
+    ):
+        raise NotImplementedError
 
 
 # Once this file is imported it will override the default RunDB implementation (RunDBContainer)

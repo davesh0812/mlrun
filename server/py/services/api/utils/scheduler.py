@@ -249,7 +249,7 @@ class Scheduler:
     def list_schedules(
         self,
         db_session: Session,
-        project: Optional[str] = None,
+        project: typing.Optional[typing.Union[str, list[str]]] = None,
         name: Optional[str] = None,
         kind: Optional[str] = None,
         labels: Optional[list[str]] = None,
@@ -1024,6 +1024,10 @@ class Scheduler:
     def transform_schemas_cron_trigger_to_apscheduler_cron_trigger(
         cron_trigger: mlrun.common.schemas.ScheduleCronTrigger,
     ):
+        # apscheduler timezone fails when `utc` key was given as it expects
+        # `UTC` key in order to work properly. this is a workaround for 3.11.0
+        if cron_trigger.timezone and isinstance(cron_trigger.timezone, str):
+            cron_trigger.timezone = cron_trigger.timezone.upper()
         return APSchedulerCronTrigger(
             cron_trigger.year,
             cron_trigger.month,
