@@ -168,7 +168,7 @@ class V3IOTSDBConnector(TSDBConnector):
         tsdb_batching_max_events: int = 1000,
         tsdb_batching_timeout_secs: int = 30,
         sample_window: int = 10,
-        aggregate_windows: list[str] = ["5m", "1h"],
+        aggregate_windows: list[str] = None,
         aggregate_period: str = "1m",
         **kwarg,
     ):
@@ -181,6 +181,7 @@ class V3IOTSDBConnector(TSDBConnector):
         - endpoint_features (Prediction and feature names and values)
         - custom_metrics (user-defined metrics)
         """
+        aggregate_windows = aggregate_windows or ["5m", "1h"]
 
         # Calculate number of predictions and average latency
         def apply_storey_aggregations():

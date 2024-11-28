@@ -17,7 +17,6 @@ import string
 from random import choice, randint
 from typing import Optional
 
-import deepdiff
 import pytest
 
 import mlrun.common.schemas

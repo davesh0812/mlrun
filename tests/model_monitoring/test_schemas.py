@@ -78,7 +78,8 @@ def test_fqn_parsing(
                 pydantic.v1.ValidationError,
                 match=(
                     re.escape(
-                        "1 validation error for ModelEndpointMetadata\nname\n  field required (type=value_error.missing)"
+                        "1 validation error for ModelEndpointMetadata\nname\n  "
+                        "field required (type=value_error.missing)"
                     )
                 ),
             ),
@@ -89,7 +90,8 @@ def test_fqn_parsing(
                 pydantic.v1.ValidationError,
                 match=(
                     re.escape(
-                        "1 validation error for ModelEndpointMetadata\nuid\n  string does not match regex "
+                        "1 validation error for ModelEndpointMetadata\nuid\n  "
+                        "string does not match regex "
                         '"^[a-zA-Z0-9_-]+$" (type=value_error.str.regex; pattern=^[a-zA-Z0-9_-]+$)'
                     )
                 ),

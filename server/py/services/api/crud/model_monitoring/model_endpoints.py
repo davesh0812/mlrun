@@ -92,7 +92,8 @@ class ModelEndpoints:
         #     model_obj=model_obj,
         # )
 
-        # 4. create a monitoring feature set & update the model endpoint object with the feature_set_uri, features and labels
+        # 4. create a monitoring feature set & update the model endpoint object with
+        # the feature_set_uri, features and labels
         # Get labels from model object if not found in model endpoint object
         features = []
         attributes = {}
