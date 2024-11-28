@@ -39,14 +39,13 @@ import mlrun.runtimes.mounts
 import mlrun.runtimes.utils
 import mlrun.serving.routers
 import mlrun.utils
-import mlrun_pipelines.mounts
-from mlrun.errors import MLRunNotFoundError
 from mlrun.model import BaseMetadata
 from mlrun.runtimes import BaseRuntime
 from mlrun.utils.v3io_clients import get_frames_client
 from tests.system.base import TestMLRunSystem
 
 _MLRUN_MODEL_MONITORING_DB = "mysql+pymysql://root@mlrun-db:3306/mlrun_model_monitoring"
+
 
 # TODO : FIXXXXXXXX
 # Marked as enterprise because of v3io mount and pipelines
@@ -206,7 +205,7 @@ class TestModelEndpointsOperations(TestMLRunSystem):
 
             db.create_model_endpoint()
 
-        filter_model = self.project.list_model_endpoints(model="filterme")
+        filter_model = self.project.list_model_endpoints(name="filterme")
         assert len(filter_model) == 1
 
         # TODO: Uncomment the following assertions once the KV labels filters is fixed.

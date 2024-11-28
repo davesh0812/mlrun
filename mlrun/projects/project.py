@@ -3466,14 +3466,14 @@ class MlrunProject(ModelObj):
 
     def list_model_endpoints(
         self,
-        model: Optional[str] = None,
-        function: Optional[str] = None,
+        name: Optional[str] = None,
+        function_name: Optional[str] = None,
         labels: Optional[list[str]] = None,
         start: str = "now-1h",
         end: str = "now",
         top_level: bool = False,
         uids: Optional[list[str]] = None,
-    ) -> list[mlrun.model_monitoring.model_endpoint.ModelEndpoint]:
+    ) -> mlrun.common.schemas.ModelEndpointList:
         """
         Returns a list of `ModelEndpoint` objects. Each `ModelEndpoint` object represents the current state of a
         model endpoint. This functions supports filtering by the following parameters:
@@ -3487,8 +3487,8 @@ class MlrunProject(ModelObj):
         In addition, this functions provides a facade for listing endpoint related metrics. This facade is time-based
         and depends on the 'start' and 'end' parameters.
 
-        :param model: The name of the model to filter by
-        :param function: The name of the function to filter by
+        :param name: The name of the model to filter by
+        :param function_name: The name of the function to filter by
         :param labels: Filter model endpoints by label key-value pairs or key existence. This can be provided as:
             - A dictionary in the format `{"label": "value"}` to match specific label key-value pairs,
             or `{"label": None}` to check for key existence.
@@ -3510,8 +3510,8 @@ class MlrunProject(ModelObj):
         db = mlrun.db.get_run_db(secrets=self._secrets)
         return db.list_model_endpoints(
             project=self.name,
-            model=model,
-            function=function,
+            name=name,
+            function_name=function_name,
             labels=labels,
             start=start,
             end=end,
