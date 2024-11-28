@@ -35,7 +35,6 @@ import mlrun.common.formatters
 import mlrun.common.runtimes
 import mlrun.common.schemas
 import mlrun.common.types
-import mlrun.model_monitoring.model_endpoint
 import mlrun.platforms
 import mlrun.projects
 import mlrun.runtimes.nuclio.api_gateway

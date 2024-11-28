@@ -24,7 +24,6 @@ import mlrun.common.runtimes.constants
 import mlrun.common.schemas
 import mlrun.common.schemas.artifact
 import mlrun.db.factory
-import mlrun.model_monitoring.model_endpoint
 from mlrun.common.db.sql_session import create_session
 from mlrun.db import RunDBInterface
 
