@@ -3564,7 +3564,8 @@ class HTTPRunDB(RunDBInterface):
         :param name:                       The name of the model endpoint
         :param function_name:              The name of the function
         :param model_name:                 The name of the model
-        :param labels:                     A list of labels to filter by. This can be provided as (see mlrun.common.schemas.LabelsModel):
+        :param labels:                     A list of labels to filter by. This can be provided as
+                                           (see mlrun.common.schemas.LabelsModel):
                                                - A dictionary in the format `{"label": "value"}` to match specific label
                                                  key-value pairs, or `{"label": None}` to check for key existence.
                                                - A list of strings formatted as `"label=value"` to match specific label

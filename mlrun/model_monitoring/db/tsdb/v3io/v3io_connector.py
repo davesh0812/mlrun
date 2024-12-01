@@ -168,7 +168,7 @@ class V3IOTSDBConnector(TSDBConnector):
         tsdb_batching_max_events: int = 1000,
         tsdb_batching_timeout_secs: int = 30,
         sample_window: int = 10,
-        aggregate_windows: list[str] = None,
+        aggregate_windows: Optional[list[str]] = None,
         aggregate_period: str = "1m",
         **kwarg,
     ):
