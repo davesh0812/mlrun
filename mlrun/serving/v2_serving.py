@@ -602,7 +602,7 @@ def _init_endpoint_record(
         model_endpoint = mlrun.common.schemas.ModelEndpoint(
             metadata=mlrun.common.schemas.ModelEndpointMetadata(
                 project=graph_server.project,
-                labels=model.labels,
+                labels=model.model_spec.labels,
                 name=model.name,
                 endpoint_type=mlrun.common.schemas.model_monitoring.EndpointType.NODE_EP,
             ),

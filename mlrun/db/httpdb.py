@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 import pydantic.v1
 import requests
 import semver
-from pydantic import parse_obj_as
+from pydantic.v1 import parse_obj_as
 
 import mlrun
 import mlrun.common.constants

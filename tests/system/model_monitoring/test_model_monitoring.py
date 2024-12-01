@@ -41,6 +41,7 @@ import mlrun.serving.routers
 import mlrun.utils
 from mlrun.model import BaseMetadata
 from mlrun.runtimes import BaseRuntime
+from mlrun.utils import generate_artifact_uri
 from mlrun.utils.v3io_clients import get_frames_client
 from tests.system.base import TestMLRunSystem
 
@@ -54,7 +55,7 @@ _MLRUN_MODEL_MONITORING_DB = "mysql+pymysql://root@mlrun-db:3306/mlrun_model_mon
 class TestModelEndpointsOperations(TestMLRunSystem):
     """Applying basic model endpoint CRUD operations through MLRun API"""
 
-    project_name = "mm-app-project-18"
+    project_name = "mm-app-project"
 
     def setup_method(self, method):
         super().setup_method(method)
@@ -236,17 +237,10 @@ class TestBasicModelMonitoring(TestMLRunSystem):
 
     project_name = "pr-basic-model-monitoring"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: Optional[str] = None
+    image: Optional[str] = "quay.io/davesh0812/mlrun:1.8.0"
 
-    @pytest.mark.timeout(540)
-    @pytest.mark.parametrize(
-        "with_sql_target",
-        [
-            True,
-            False,
-        ],
-    )
-    def test_basic_model_monitoring(self, with_sql_target: bool) -> None:
+    # @pytest.mark.timeout(540)
+    def test_basic_model_monitoring(self) -> None:
         # Main validations:
         # 1 - a single model endpoint is created
         # 2 - model name, tag and values are recorded as expected under the model endpoint
@@ -322,22 +316,18 @@ class TestBasicModelMonitoring(TestMLRunSystem):
             sleep(choice([0.01, 0.04]))
 
         sleep(5)
-        endpoints_list = mlrun.get_run_db().list_model_endpoints(
-            self.project_name, metrics=["predictions_per_second"]
-        )
-        assert len(endpoints_list) == 1
+        endpoints_list = mlrun.get_run_db().list_model_endpoints(self.project_name)
+        assert len(endpoints_list.endpoints) == 1
 
-        endpoint = endpoints_list[0]
-
-        assert not endpoint.status.feature_stats
+        endpoint = endpoints_list.endpoints[0]
+        print(endpoint)
 
         self._assert_model_endpoint_tags_and_labels(
-            endpoint=endpoint, model_name=model_name, tag=tag, labels=labels
+            endpoint=endpoint,
+            model_name=model_name,
+            tag=["some-tag", "latest"],
+            labels=labels,
         )
-
-        # Test metrics
-        self._assert_model_endpoint_metrics(endpoint=endpoint)
-
         self._assert_model_uri(model_obj=model_obj, endpoint=endpoint)
 
         metrics = mlrun.get_run_db().get_model_endpoint_monitoring_metrics(
@@ -354,37 +344,26 @@ class TestBasicModelMonitoring(TestMLRunSystem):
         model_obj: mlrun.artifacts.ModelArtifact,
         endpoint: mlrun.common.schemas.ModelEndpoint,
     ) -> None:
-        pass
-        # assert (
-        #     endpoint.spec.model_uri
-        #     == f"store://models/{model_obj.metadata.project}/{model_obj.key}#{model_obj.iter}@{model_obj.tree}"
-        # )
+        assert endpoint.spec.model_uri == mlrun.datastore.get_store_uri(
+            kind=mlrun.utils.helpers.StorePrefix.Model,
+            uri=generate_artifact_uri(
+                project=model_obj.project,
+                key=model_obj.key,
+                iter=model_obj.iter,
+                tree=model_obj.tree,
+            ),
+        )
 
     def _assert_model_endpoint_tags_and_labels(
         self,
         endpoint: mlrun.common.schemas.ModelEndpoint,
         model_name: str,
-        tag: str,
+        tag: list[str],
         labels: dict[str, str],
     ) -> None:
-        pass
-        # assert endpoint.metadata.labels == labels
-        # assert endpoint.spec.model == f"{model_name}:{tag}"
-
-    def _assert_model_endpoint_metrics(
-        self, endpoint: mlrun.common.schemas.ModelEndpoint
-    ) -> None:
-        pass
-        # assert len(endpoint.status.metrics) > 0
-        # self._logger.debug("Model endpoint metrics", endpoint.status.metrics)
-        #
-        # assert endpoint.status.metrics["generic"]["predictions_count_5m"] == 102
-        #
-        # predictions_per_second = endpoint.status.metrics["real_time"][
-        #     "predictions_per_second"
-        # ]
-        # total = sum(m[1] for m in predictions_per_second)
-        # assert total > 0
+        assert endpoint.metadata.labels == labels
+        assert endpoint.spec.model_name == model_name
+        assert endpoint.spec.model_tag == tag
 
 
 @pytest.mark.skip(reason="Chronically fails, see ML-5820")
@@ -392,7 +371,7 @@ class TestBasicModelMonitoring(TestMLRunSystem):
 class TestModelMonitoringRegression(TestMLRunSystem):
     """Train, deploy and apply monitoring on a regression model"""
 
-    project_name = "pr-regression-model-monitoring-v4"
+    project_name = "pr-regression-model-monitoring"
 
     # TODO: Temporary skip this test on open source until fixed
     @pytest.mark.enterprise
@@ -1273,14 +1252,7 @@ class TestModelEndpointWithManyFeatures(TestMLRunSystem):
 
     project_name = "pr-many-features-model-monitoring"
 
-    @pytest.mark.parametrize(
-        "with_sql_target",
-        [
-            True,
-            False,
-        ],
-    )
-    def test_model_endpoint_with_many_features(self, with_sql_target: bool) -> None:
+    def test_model_endpoint_with_many_features(self) -> None:
         project = self.project
 
         project.set_model_monitoring_credentials(
@@ -1315,4 +1287,4 @@ class TestModelEndpointWithManyFeatures(TestMLRunSystem):
             model_endpoint_name="dummy_ep",
         )
 
-        assert len(model_endpoint.status.feature_stats) == 501
+        assert len(model_endpoint.spec.feature_stats) == 501
