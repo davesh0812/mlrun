@@ -518,7 +518,6 @@ class TestModelEndpoint(TestDatabaseBase):
         assert self._db_session.query(ModelEndpoint).count() == 0
 
     def test_insert_without_model(self) -> None:
-        uids = []
         function_hash_key = self._store_function()
         model_endpoint = mlrun.common.schemas.ModelEndpoint(
             metadata={"name": "model-endpoint-1", "project": "project-1"},
@@ -549,10 +548,8 @@ class TestModelEndpoint(TestDatabaseBase):
             == f"project-1/function-1@{function_hash_key}"
         )
         assert model_endpoint_from_db.spec.model_name == ""
-        uids.append(mep.metadata.uid)
 
     def test_insert_without_function(self) -> None:
-        uids = []
         model_endpoint = mlrun.common.schemas.ModelEndpoint(
             metadata={"name": "model-endpoint-1", "project": "project-1"},
             spec={
@@ -578,4 +575,4 @@ class TestModelEndpoint(TestDatabaseBase):
         assert model_endpoint_from_db.metadata.project == "project-1"
         assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
         assert model_endpoint_from_db.spec.model_name == ""
-        assert model_endpoint_from_db.spec.function_name == None
+        assert model_endpoint_from_db.spec.function_name is None

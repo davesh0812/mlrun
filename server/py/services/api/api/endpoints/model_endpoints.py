@@ -185,7 +185,6 @@ async def delete_model_endpoint(
     )
 
 
-# pageination
 @router.get(
     "",
     status_code=HTTPStatus.OK.value,
@@ -205,7 +204,6 @@ async def list_model_endpoints(
     latest_only: bool = Query(False, alias="latest_only"),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(deps.get_db_session),
-    # TODO : pageination
 ) -> schemas.ModelEndpointList:
     """
     List model endpoints.
@@ -220,6 +218,7 @@ async def list_model_endpoints(
     :param tsdb_metrics:    Whether to include metrics from the time series DB.
     :param top_level:       Whether to return only top level model endpoints.
     :param uids:            A list of unique ids to filter by.
+    :param latest_only:     Whether to return only the latest model endpoint for each name.
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database.
     :return:                A list of model endpoints.
@@ -264,7 +263,6 @@ async def list_model_endpoints(
 
     endpoints.endpoints = allowed_endpoints
 
-    # print("endpoints", endpoints[0].)
     return endpoints
 
 
