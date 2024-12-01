@@ -24,7 +24,6 @@ from sqlalchemy import (
     JSON,
     Column,
     ForeignKey,
-    ForeignKeyConstraint,
     Index,
     Integer,
     PrimaryKeyConstraint,
@@ -920,11 +919,6 @@ with warnings.catch_warnings():
             UniqueConstraint(
                 "project", "name", "uid", "function_name", name="_mep_uc_2"
             ),
-            ForeignKeyConstraint(
-                ("function_name", "function_uid", "project"),
-                ["functions.name", "functions.uid", "functions.project"],
-                name="_mep_function_constraint",
-            ),
         )
 
         id = Column(Integer, primary_key=True)
@@ -950,6 +944,11 @@ with warnings.catch_warnings():
             "Function",
             cascade="save-update",
             single_parent=True,
+            primaryjoin=and_(
+                foreign(function_name) == Function.name,
+                foreign(function_uid) == Function.uid,
+                foreign(project) == Function.project,
+            ),
         )
         model = relationship(
             "ArtifactV2",

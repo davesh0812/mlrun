@@ -517,7 +517,7 @@ class TestModelEndpoint(TestDatabaseBase):
         assert self._db_session.query(ModelEndpoint.Tag).count() == 0
         assert self._db_session.query(ModelEndpoint).count() == 0
 
-    def test_insert_non_model(self) -> None:
+    def test_insert_without_model(self) -> None:
         uids = []
         function_hash_key = self._store_function()
         model_endpoint = mlrun.common.schemas.ModelEndpoint(
@@ -528,26 +528,54 @@ class TestModelEndpoint(TestDatabaseBase):
             },
             status={"monitoring_mode": "enabled", "last_request": str(datetime.now())},
         )
-        for i in range(2):
-            mep = self._db.store_model_endpoint(
-                self._db_session,
-                model_endpoint,
-                name=model_endpoint.metadata.name,
-                project=model_endpoint.metadata.project,
-                function_name="function-1",
-            )
-            model_endpoint_from_db = self._db.get_model_endpoint(
-                self._db_session,
-                name=model_endpoint.metadata.name,
-                project=model_endpoint.metadata.project,
-                function_name="function-1",
-            )
-            assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
-            assert model_endpoint_from_db.metadata.project == "project-1"
-            assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
-            assert (
-                model_endpoint_from_db.spec.function_uri
-                == f"project-1/function-1@{function_hash_key}"
-            )
-            assert model_endpoint_from_db.spec.model_name == ""
-            uids.append(mep.metadata.uid)
+        mep = self._db.store_model_endpoint(
+            self._db_session,
+            model_endpoint,
+            name=model_endpoint.metadata.name,
+            project=model_endpoint.metadata.project,
+            function_name="function-1",
+        )
+        model_endpoint_from_db = self._db.get_model_endpoint(
+            self._db_session,
+            name=model_endpoint.metadata.name,
+            project=model_endpoint.metadata.project,
+            function_name="function-1",
+        )
+        assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
+        assert model_endpoint_from_db.metadata.project == "project-1"
+        assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
+        assert (
+            model_endpoint_from_db.spec.function_uri
+            == f"project-1/function-1@{function_hash_key}"
+        )
+        assert model_endpoint_from_db.spec.model_name == ""
+        uids.append(mep.metadata.uid)
+
+    def test_insert_without_function(self) -> None:
+        uids = []
+        model_endpoint = mlrun.common.schemas.ModelEndpoint(
+            metadata={"name": "model-endpoint-1", "project": "project-1"},
+            spec={
+                "function_name": None,
+                "function_uid": None,
+            },
+            status={"monitoring_mode": "enabled", "last_request": str(datetime.now())},
+        )
+        mep = self._db.store_model_endpoint(
+            self._db_session,
+            model_endpoint,
+            name=model_endpoint.metadata.name,
+            project=model_endpoint.metadata.project,
+            function_name=None,
+        )
+        model_endpoint_from_db = self._db.get_model_endpoint(
+            self._db_session,
+            name=model_endpoint.metadata.name,
+            project=model_endpoint.metadata.project,
+            function_name=None,
+        )
+        assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
+        assert model_endpoint_from_db.metadata.project == "project-1"
+        assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
+        assert model_endpoint_from_db.spec.model_name == ""
+        assert model_endpoint_from_db.spec.function_name == None

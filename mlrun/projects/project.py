@@ -3467,27 +3467,31 @@ class MlrunProject(ModelObj):
     def list_model_endpoints(
         self,
         name: Optional[str] = None,
+        model_name: Optional[str] = None,
         function_name: Optional[str] = None,
         labels: Optional[list[str]] = None,
-        start: str = "now-1h",
-        end: str = "now",
+        start: Optional[str] = None,
+        end: Optional[str] = None,
         top_level: bool = False,
         uids: Optional[list[str]] = None,
     ) -> mlrun.common.schemas.ModelEndpointList:
         """
         Returns a list of `ModelEndpoint` objects. Each `ModelEndpoint` object represents the current state of a
         model endpoint. This functions supports filtering by the following parameters:
-        1) model
-        2) function
-        3) labels
-        4) top level
-        5) uids
+        1) name
+        2) model_name
+        3) function_name
+        4) labels
+        5) top level
+        6) uids
+        7) start and end time, corresponding to the `created` field.
         By default, when no filters are applied, all available endpoints for the given project will be listed.
 
         In addition, this functions provides a facade for listing endpoint related metrics. This facade is time-based
         and depends on the 'start' and 'end' parameters.
 
         :param name: The name of the model to filter by
+        :param model_name: The name of the model to filter by
         :param function_name: The name of the function to filter by
         :param labels: Filter model endpoints by label key-value pairs or key existence. This can be provided as:
             - A dictionary in the format `{"label": "value"}` to match specific label key-value pairs,
@@ -3496,12 +3500,8 @@ class MlrunProject(ModelObj):
             or just `"label"` for key existence.
             - A comma-separated string formatted as `"label1=value1,label2"` to match entities with
             the specified key-value pairs or key existence.
-        :param start: The start time of the metrics. Can be represented by a string containing an RFC 3339 time, a
-                      Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
-                      `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-        :param end: The end time of the metrics. Can be represented by a string containing an RFC 3339 time, a
-                      Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
-                      `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
+        :param start:                     The start time to filter by.Corresponding to the `created` field.
+        :param end:                       The end time to filter by. Corresponding to the `created` field.
         :param top_level: if true will return only routers and endpoint that are NOT children of any router
         :param uids: if passed will return a list `ModelEndpoint` object with uid in uids
 
@@ -3511,6 +3511,7 @@ class MlrunProject(ModelObj):
         return db.list_model_endpoints(
             project=self.name,
             name=name,
+            model_name=model_name,
             function_name=function_name,
             labels=labels,
             start=start,

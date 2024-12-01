@@ -6730,19 +6730,19 @@ class SQLDB(DBInterface):
             metadata=model_endpoint.metadata,
         )
         body_name = model_endpoint.metadata.name
-        if body_name and body_name != name:
+        if body_name != name:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"Conflict between requested name and name in MEP body, MEP name is {name} while body_name is"
                 f" {body_name}"
             )
         body_project = model_endpoint.metadata.project
-        if body_project and body_project != project:
+        if body_project != project:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"Conflict between requested project and project in MEP body, MEP project is {project} "
                 f"while body_project is {body_project}"
             )
         body_function = model_endpoint.spec.function_name
-        if body_function and body_function != function_name:
+        if body_function != function_name:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"Conflict between requested function and function in MEP body, MEP function is {function_name} "
                 f"while body_function is {body_function}"

@@ -83,9 +83,11 @@ class ModelEndpoints:
 
         # 2. according to the model uri get the model object
         # 3. get the feature stats from the model object
-        model_endpoint, model_obj = cls._add_feature_stats(
-            session=db_session, model_endpoint_object=model_endpoint
-        )
+        model_obj = None
+        if model_endpoint.spec.model_uri:
+            model_endpoint, model_obj = cls._add_feature_stats(
+                session=db_session, model_endpoint_object=model_endpoint
+            )
         # # Verify and enrich the model endpoint obj with the updated model uri
         # mlrun.model_monitoring.helpers.enrich_model_endpoint_with_model_uri(
         #     model_endpoint=model_endpoint,
@@ -362,22 +364,27 @@ class ModelEndpoints:
                     name=name,
                     function_name=function_name,
                     latest_only=False,
+                    session=db_session,
                 )
             )
             uids = [
-                model_endpoint.metadata.uid for model_endpoint in model_endpoint_list
+                model_endpoint.metadata.uid
+                for model_endpoint in model_endpoint_list.endpoints
             ]
         else:
             uids = [endpoint_id]
 
         framework.utils.singletons.db.get_db().delete_model_endpoint(
-            session=db_session, project=project, name=name, function_name=function_name
+            session=db_session,
+            project=project,
+            name=name,
+            function_name=function_name,
+            uid=endpoint_id,
         )
         # Delete stats files
         for uid in uids:
             ModelMonitoringCurrentStatsFile(project=project, endpoint_id=uid).delete()
             ModelMonitoringDriftMeasuresFile(project=project, endpoint_id=uid).delete()
-
             ModelMonitoringSchedulesFile(project=project, endpoint_id=uid).delete()
 
         logger.info(
@@ -447,9 +454,10 @@ class ModelEndpoints:
             model_endpoint_object = self._add_feature_analysis(
                 model_endpoint_objects=[model_endpoint_object]
             )[0]
-            model_endpoint_object, _ = self._add_feature_stats(
-                session=db_session, model_endpoint_object=model_endpoint_object
-            )
+            if model_endpoint_object.spec.model_uri:
+                model_endpoint_object, _ = self._add_feature_stats(
+                    session=db_session, model_endpoint_object=model_endpoint_object
+                )
 
         return model_endpoint_object
 
@@ -921,6 +929,7 @@ class ModelEndpoints:
 
         :return: A list of `ModelEndpoint` objects.
         """
+
         run_db = framework.api.utils.get_run_db_instance(session)
         model_obj: mlrun.artifacts.ModelArtifact = (
             mlrun.datastore.store_resources.get_store_resource(

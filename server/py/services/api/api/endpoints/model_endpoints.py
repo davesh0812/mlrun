@@ -77,17 +77,8 @@ async def create_model_endpoint(
         )
     )
 
-    if (
-        not model_endpoint.metadata.project
-        or not model_endpoint.metadata.name
-        or not model_endpoint.spec.function_name
-        or not model_endpoint.spec.model_name
-        or not model_endpoint.spec.model_uid
-        or not model_endpoint.spec.function_uid
-    ):
-        raise MLRunInvalidArgumentError(
-            "Model endpoint must have project, name, function_name, model_name, model_uid and function_uid"
-        )
+    if not model_endpoint.metadata.project or not model_endpoint.metadata.name:
+        raise MLRunInvalidArgumentError("Model endpoint must have project and name")
 
     return await run_in_threadpool(
         services.api.crud.ModelEndpoints().create_model_endpoint,

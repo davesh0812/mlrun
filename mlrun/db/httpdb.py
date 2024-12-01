@@ -3590,6 +3590,7 @@ class HTTPRunDB(RunDBInterface):
             method="GET",
             path=path,
             params={
+                "name": name,
                 "model_name": model_name,
                 "function_name": function_name,
                 "label": labels,
