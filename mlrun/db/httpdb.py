@@ -3564,21 +3564,14 @@ class HTTPRunDB(RunDBInterface):
         :param name:            The name of the model endpoint
         :param function_name:   The name of the function
         :param model_name:      The name of the model
-        :param labels:          A list of labels to filter by. This can be provided as
-                               (see mlrun.common.schemas.LabelsModel):
-                                   - A dictionary in the format `{"label": "value"}` to match specific label
-                                     key-value pairs, or `{"label": None}` to check for key existence.
-                                   - A list of strings formatted as `"label=value"` to match specific label
-                                     key-value pairs, or just `"label"` for key existence.
-                                   - A comma-separated string formatted as `"label1=value1,label2"` to match
-                                     entities with the specified key-value pairs or key existence.
-        :param start:          The start time to filter by.Corresponding to the `created` field.
-        :param end:            The end time to filter by. Corresponding to the `created` field.
-        :param tsdb_metrics:   Whether to include metrics from the time series DB.
-        :param top_level:      Whether to return only top level model endpoints.
-        :param uids:           A list of unique ids to filter by.
-        :param latest_only:    Whether to return only the latest model endpoint version.
-        :return:               A list of model endpoints.
+        :param labels:          A list of labels to filter by. (see mlrun.common.schemas.LabelsModel)
+        :param start:           The start time to filter by.Corresponding to the `created` field.
+        :param end:             The end time to filter by. Corresponding to the `created` field.
+        :param tsdb_metrics:    Whether to include metrics from the time series DB.
+        :param top_level:       Whether to return only top level model endpoints.
+        :param uids:            A list of unique ids to filter by.
+        :param latest_only:     Whether to return only the latest model endpoint version.
+        :return:                A list of model endpoints.
         """
         path = f"projects/{project}/model-endpoints"
         labels = self._parse_labels(labels)
