@@ -566,6 +566,8 @@ def _init_endpoint_record(
     """
 
     logger.info("Initializing endpoint records")
+    if not model.model_spec:
+        model.get_model()
     try:
         model_ep = mlrun.get_run_db().get_model_endpoint(
             project=graph_server.project,

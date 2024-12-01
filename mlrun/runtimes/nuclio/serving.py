@@ -710,6 +710,8 @@ class ServingRuntime(RemoteRuntime):
             function_uri=self._function_uri(),
             secret_sources=self.spec.secret_sources,
             default_content_type=self.spec.default_content_type,
+            function_name=self.metadata.name,
+            function_tag=self.metadata.tag,
             **kwargs,
         )
         server.init_states(

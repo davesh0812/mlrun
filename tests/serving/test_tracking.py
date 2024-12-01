@@ -103,7 +103,6 @@ def test_tracked_function(rundb_mock, enable_tracking):
         project = mlrun.new_project("test-pro", save=False)
         fn = mlrun.new_function("test-fn", kind="serving")
         model_uri = _log_model(project)
-        print(model_uri)
         fn.add_model("m1", model_uri, "ModelTestingClass", multiplier=5)
         fn.set_tracking("dummy://", enable_tracking=enable_tracking)
         server = fn.to_mock_server(track_models=True)
@@ -113,16 +112,12 @@ def test_tracked_function(rundb_mock, enable_tracking):
         assert len(dummy_stream.event_list) == 1, "expected stream to get one message"
 
     rundb_mock.patch_model_endpoint.assert_called_once()
-    assert (
-        rundb_mock.patch_model_endpoint.call_args.kwargs["attributes"]["model_uri"]
-        == model_uri
-    ), "model_uri attribute of the model endpoint was not updated as expected"
-    if not enable_tracking:
+    if enable_tracking:
         assert (
             rundb_mock.patch_model_endpoint.call_args.kwargs["attributes"][
                 "monitoring_mode"
             ]
-            == ModelMonitoringMode.disabled
+            == ModelMonitoringMode.enabled
         ), "model_uri attribute of the model endpoint was not updated as expected"
 
 

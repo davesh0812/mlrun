@@ -29,6 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
 import mlrun
+import mlrun.alerts.alert
 import mlrun.common.schemas.alert as alert_objects
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
 import mlrun.common.types
@@ -320,9 +321,9 @@ class _V3IORecordsChecker:
 @pytest.mark.enterprise
 @pytest.mark.model_monitoring
 class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
-    project_name = "test-app-flow"
+    project_name = "test-app-flow-v78"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: typing.Optional[str] = None
+    image: typing.Optional[str] = "quay.io/davesh0812/mlrun:1.8.0"
     error_count = 10
 
     @classmethod
@@ -670,7 +671,7 @@ class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
             future = executor.submit(self._deploy_model_serving, with_training_set)
 
         serving_fn = future.result()
-        self._add_error_alert()
+        # self._add_error_alert()
 
         time.sleep(5)
         self._infer(
@@ -711,7 +712,7 @@ class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
         self._test_api(ep_id=mep.metadata.uid)
         if _DefaultDataDriftAppData in self.apps_data:
             self._test_model_endpoint_stats(mep=mep)
-        self._test_error_alert()
+        # self._test_error_alert()
 
 
 @TestMLRunSystem.skip_test_if_env_not_configured

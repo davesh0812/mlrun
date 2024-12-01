@@ -344,7 +344,7 @@ class ModelEndpoints:
         function_name: str,
         endpoint_id: str,
         db_session: sqlalchemy.orm.Session,
-    ):
+    ) -> None:
         """
         Delete the record of a given model endpoint based on endpoint id.
 
@@ -398,8 +398,7 @@ class ModelEndpoints:
         feature_analysis: bool = False,
         db_session: sqlalchemy.orm.Session = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
-        """Get a single model endpoint object. You can apply different time series metrics that will be added to the
-           result.
+        """Get a single model endpoint object.
 
         :param name                        The name of the model endpoint
         :param project:                    The name of the project
@@ -470,33 +469,20 @@ class ModelEndpoints:
         latest_only: typing.Optional[bool] = None,
     ) -> mlrun.common.schemas.ModelEndpointList:
         """
-        Returns a list of `ModelEndpoint` objects, wrapped in `ModelEndpointList` object. Each `ModelEndpoint`
-        object represents the current state of a model endpoint. This functions supports filtering by the following
-        parameters:
-        1) model
-        2) function
-        3) labels
-        4) top level
-        5) uids
-        By default, when no filters are applied, all available endpoints for the given project will be listed.
-
-        In addition, this functions provides a facade for listing endpoint related metrics. This facade is time-based
-        and depends on the 'start' and 'end' parameters. By default, when the metrics parameter is None, no metrics are
-        added to the output of this function.
-
-        :param project:   The name of the project.
-        :param model:     The name of the model to filter by.
-        :param function:  The name of the function to filter by.
-        :param labels:    A list of labels to filter by. Label filters work by either filtering a specific value of a
-                          label (i.e. list("key=value")) or by looking for the existence of a given key (i.e. "key").
-        :param metrics:   When True, the time series metrics will be added to the output of the resulting.
-        :param start:     The start time of the metrics.
-        :param end:       The end time of the metrics.
-        :param top_level: If True, return only routers and endpoints that are NOT children of any router.
-        :param uids:      List of model endpoint unique ids to include in the result.
-
-        :return: An object of `ModelEndpointList` which is literally a list of model endpoints along with some metadata.
-                 To get a standard list of model endpoints use `ModelEndpointList.endpoints`.
+        List model endpoints based on the provided filters.
+        :param project:             The name of the project.
+        :param db_session:          A session that manages the current dialog with the database.
+        :param name:                The name of the model endpoint.
+        :param model_name:          The name of the model.
+        :param function_name:       The name of the function.
+        :param labels:              A list of labels to filter the model endpoints.
+        :param start:               The start time of the model endpoint creation.
+        :param end:                 The end time of the model endpoint creation.
+        :param top_level:           When True, only top level model endpoints will be returned.
+        :param tsdb_metrics:        When True, the time series metrics will be added to the output of the resulting
+        :param uids:                A list of unique ids of the model endpoints.
+        :param latest_only:         When True, only the latest model endpoint will be returned.
+        :return:                    A list of `ModelEndpoint` objects.
         """
 
         logger.info(

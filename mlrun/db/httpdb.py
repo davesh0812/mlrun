@@ -3505,6 +3505,8 @@ class HTTPRunDB(RunDBInterface):
         Creates a DB record with the given model_endpoint record.
 
         :param model_endpoint: An object representing the model endpoint.
+
+        :return: The created model endpoint object.
         """
 
         path = f"projects/{model_endpoint.metadata.project}/model-endpoints/{model_endpoint.metadata.name}"
@@ -3525,7 +3527,9 @@ class HTTPRunDB(RunDBInterface):
         """
         Deletes the DB record of a given model endpoint, project and endpoint_id are used for lookup
 
+        :param name: The name of the model endpoint
         :param project: The name of the project
+        :param function_name: The name of the function
         :param endpoint_id: The id of the endpoint
         """
 
@@ -3554,40 +3558,28 @@ class HTTPRunDB(RunDBInterface):
         latest_only: bool = False,
     ) -> mlrun.common.schemas.ModelEndpointList:
         """
-        Returns a list of `ModelEndpoint` objects. Each `ModelEndpoint` object represents the current state of a
-        model endpoint. This functions supports filtering by the following parameters:
-        1) model
-        2) function
-        3) labels
-        4) top level
-        5) uids
-        By default, when no filters are applied, all available endpoints for the given project will be listed.
+        List model endpoints with optional filtering by name, function name, model name, labels, and time range.
 
-        In addition, this functions provides a facade for listing endpoint related metrics. This facade is time-based
-        and depends on the 'start' and 'end' parameters. By default, when the metrics parameter is None, no metrics are
-        added to the output of this function.
+        :param project:                    The name of the project
+        :param name:                       The name of the model endpoint
+        :param function_name:              The name of the function
+        :param model_name:                 The name of the model
+        :param labels:                     A list of labels to filter by. This can be provided as (see mlrun.common.schemas.LabelsModel):
+                                               - A dictionary in the format `{"label": "value"}` to match specific label
+                                                 key-value pairs, or `{"label": None}` to check for key existence.
+                                               - A list of strings formatted as `"label=value"` to match specific label
+                                                 key-value pairs, or just `"label"` for key existence.
+                                               - A comma-separated string formatted as `"label1=value1,label2"` to match
+                                                 entities with the specified key-value pairs or key existence.
+        :param start:                     The start time to filter by.Corresponding to the `created` field.
+        :param end:                       The end time to filter by. Corresponding to the `created` field.
+        :param tsdb_metrics:              Whether to include metrics from the time series DB.
+        :param top_level:                 Whether to return only top level model endpoints.
+        :param uids:                      A list of unique ids to filter by.
+        :param latest_only:               Whether to return only the latest model endpoint version.
 
-        :param project: The name of the project
-        :param model: The name of the model to filter by
-        :param function: The name of the function to filter by
-        :param labels: Filter model endpoints by label key-value pairs or key existence. This can be provided as:
-            - A dictionary in the format `{"label": "value"}` to match specific label key-value pairs,
-            or `{"label": None}` to check for key existence.
-            - A list of strings formatted as `"label=value"` to match specific label key-value pairs,
-            or just `"label"` for key existence.
-            - A comma-separated string formatted as `"label1=value1,label2"` to match entities with
-            the specified key-value pairs or key existence.
-        :param metrics: A list of metrics to return for each endpoint, read more in 'TimeMetric'
-        :param start: The start time of the metrics. Can be represented by a string containing an RFC 3339 time, a
-                      Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
-                      `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-        :param end: The end time of the metrics. Can be represented by a string containing an RFC 3339 time, a
-                      Unix timestamp in milliseconds, a relative time (`'now'` or `'now-[0-9]+[mhd]'`, where
-                      `m` = minutes, `h` = hours, `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-        :param top_level: if true will return only routers and endpoint that are NOT children of any router
-        :param uids: if passed will return a list `ModelEndpoint` object with uid in uids
+        :return:                       A list of model endpoints.
 
-        :returns: Returns a list of `ModelEndpoint` objects.
         """
 
         path = f"projects/{project}/model-endpoints"
@@ -3624,25 +3616,15 @@ class HTTPRunDB(RunDBInterface):
         """
         Returns a single `ModelEndpoint` object with additional metrics and feature related data.
 
+        :param name:                       The name of the model endpoint
         :param project:                    The name of the project
-        :param endpoint_id:                The unique id of the model endpoint.
-        :param start:                      The start time of the metrics. Can be represented by a string containing an
-                                           RFC 3339 time, a  Unix timestamp in milliseconds, a relative time
-                                           (`'now'` or `'now-[0-9]+[mhd]'`, where `m` = minutes, `h` = hours,
-                                           `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-        :param end:                        The end time of the metrics. Can be represented by a string containing an
-                                           RFC 3339 time, a  Unix timestamp in milliseconds, a relative time
-                                           (`'now'` or `'now-[0-9]+[mhd]'`, where `m` = minutes, `h` = hours,
-                                           `'d'` = days, and `'s'` = seconds), or 0 for the earliest time.
-        :param metrics:                    A list of metrics to return for the model endpoint. There are pre-defined
-                                           metrics for model endpoints such as predictions_per_second and
-                                           latency_avg_5m but also custom metrics defined by the user. Please note that
-                                           these metrics are stored in the time series DB and the results will be
-                                           appeared under model_endpoint.spec.metrics.
-        :param feature_analysis:           When True, the base feature statistics and current feature statistics will
-                                           be added to the output of the resulting object.
+        :param function_name:              The name of the function
+        :param endpoint_id:                The id of the endpoint
+        :param tsdb_metrics:               Whether to include metrics from the time series DB.
+        :param feature_analysis:           Whether to include feature analysis data (feature_stats,
+                                            current_stats & drift_measures).
 
-        :returns: A `ModelEndpoint` object.
+        :return:                          A `ModelEndpoint` object.
         """
 
         path = f"projects/{project}/model-endpoints/{name}"
@@ -3668,15 +3650,14 @@ class HTTPRunDB(RunDBInterface):
         endpoint_id: Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
         """
-        Updates model endpoint with provided attributes.
+        Updates a model endpoint with the given attributes.
 
-        :param project: The name of the project.
-        :param endpoint_id: The id of the endpoint.
-        :param attributes: Dictionary of attributes that will be used for update the model endpoint. The keys
-            of this dictionary should exist in the target table. Note that the values should be from type string or from
-            a valid numerical type such as int or float. More details about the model endpoint available attributes can
-            be found under :py:class:`~mlrun.common.schemas.ModelEndpoint`.
-
+        :param name:                       The name of the model endpoint
+        :param project:                    The name of the project
+        :param attributes:                 The attributes to update
+        :param function_name:              The name of the function
+        :param endpoint_id:                The id of the endpoint
+        :return:                          The updated `ModelEndpoint` object.
         """
         attributes_keys = list(attributes.keys())
         attributes["name"] = name or ""
