@@ -67,7 +67,6 @@ class TestEventPreparation:
 
     @classmethod
     @pytest.mark.usefixtures("mock_get_current_project")
-    @patch("mlrun.model_monitoring.applications.context.get_endpoint_record")
     def test_prepare_monitoring_event(
         cls, controller_event: dict[str, typing.Any]
     ) -> None:
