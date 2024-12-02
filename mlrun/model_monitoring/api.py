@@ -46,8 +46,6 @@ def get_or_create_model_endpoint(
     function_name: str = "",
     context: mlrun.MLClientCtx = None,
     sample_set_statistics: typing.Optional[dict[str, typing.Any]] = None,
-    drift_threshold: typing.Optional[float] = None,
-    possible_drift_threshold: typing.Optional[float] = None,
     monitoring_mode: mm_constants.ModelMonitoringMode = mm_constants.ModelMonitoringMode.disabled,
     db_session=None,
 ) -> ModelEndpoint:
@@ -68,10 +66,6 @@ def get_or_create_model_endpoint(
                                      full function hash.
     :param sample_set_statistics:    Dictionary of sample set statistics that will be used as a reference data for
                                      the new model endpoint (applicable only to new endpoint_id).
-    :param drift_threshold:          (deprecated) The threshold of which to mark drifts (applicable only to new
-                                     endpoint_id).
-    :param possible_drift_threshold: (deprecated) The threshold of which to mark possible drifts (applicable only to new
-                                     endpoint_id).
     :param monitoring_mode:          If enabled, apply model monitoring features on the provided endpoint id
                                      (applicable only to new endpoint_id).
     :param db_session:               A runtime session that manages the current dialog with the database.
@@ -101,7 +95,6 @@ def get_or_create_model_endpoint(
         model_endpoint = _generate_model_endpoint(
             project=project,
             db_session=db_session,
-            endpoint_id=endpoint_id,
             model_path=model_path,
             model_endpoint_name=model_endpoint_name,
             function_name=function_name,
@@ -205,13 +198,13 @@ def record_results(
         monitoring_mode=monitoring_mode,
         db_session=db,
     )
-    logger.debug("Model endpoint", endpoint=model_endpoint.to_dict())
+    logger.debug("Model endpoint", endpoint=model_endpoint)
 
     timestamp = datetime_now()
     if infer_results_df is not None:
         # Write the monitoring parquet to the relevant model endpoint context
         write_monitoring_df(
-            feature_set_uri=model_endpoint.status.monitoring_feature_set_uri,
+            feature_set_uri=model_endpoint.spec.monitoring_feature_set_uri,
             infer_datetime=timestamp,
             endpoint_id=model_endpoint.metadata.uid,
             infer_results_df=infer_results_df,
@@ -275,7 +268,7 @@ def _model_endpoint_validations(
     # Feature stats
     if (
         sample_set_statistics
-        and sample_set_statistics != model_endpoint.status.feature_stats
+        and sample_set_statistics != model_endpoint.spec.feature_stats
     ):
         logger.warning(
             "Provided sample set statistics is different from the registered statistics. "
@@ -327,7 +320,6 @@ def write_monitoring_df(
 def _generate_model_endpoint(
     project: str,
     db_session,
-    endpoint_id: str,
     model_path: str,
     model_endpoint_name: str,
     function_name: str,
@@ -341,7 +333,6 @@ def _generate_model_endpoint(
     :param project:                  Project name.
 
     :param db_session:               A session that manages the current dialog with the database.
-    :param endpoint_id:              Model endpoint unique ID.
     :param model_path:               The model Store path.
     :param model_endpoint_name:      Model endpoint name will be presented under the new model endpoint.
     :param function_name:            If a new model endpoint is created, use this function name for generating the
@@ -360,22 +351,27 @@ def _generate_model_endpoint(
         raise mlrun.errors.MLRunInvalidArgumentError(
             "Please provide either a function name or a valid MLRun context"
         )
-
-    model_endpoint = ModelEndpoint()
-    model_endpoint.metadata.project = project
-    model_endpoint.metadata.name = model_endpoint_name
-    model_endpoint.spec.function_name = function_name
-    model_endpoint.spec.model_name = model_path  # TODO
-    # model_uid, function_uid # TODO
-
-    # model_endpoint.spec.model_uri = model_path
-    model_endpoint.spec.model_class = "drift-analysis"
-    model_endpoint.spec.monitoring_mode = monitoring_mode
-    model_endpoint.status.first_request = model_endpoint.status.last_request = (
-        datetime_now().isoformat()
-    )  # TODO : check
-    # if sample_set_statistics:  # TODO : check
-    #     model_endpoint.status.feature_stats = sample_set_statistics
+    model_obj: mlrun.artifacts.ModelArtifact = (
+        mlrun.datastore.store_resources.get_store_resource(model_path, db=db_session)
+    )
+    model_endpoint = mlrun.common.schemas.ModelEndpoint(
+        metadata=mlrun.common.schemas.ModelEndpointMetadata(
+            project=project,
+            name=model_endpoint_name,
+            endpoint_type=mlrun.common.schemas.model_monitoring.EndpointType.BATCH_EP,
+        ),
+        spec=mlrun.common.schemas.ModelEndpointSpec(
+            function_name=function_name,
+            model_name=model_obj.metadata.key,
+            model_uid=model_obj.metadata.uid,
+            model_class="drift-analysis",
+        ),
+        status=mlrun.common.schemas.ModelEndpointStatus(
+            monitoring_mode=monitoring_mode,
+            first_request=datetime_now(),
+            last_request=datetime_now(),
+        ),
+    )
 
     return db_session.create_model_endpoint(model_endpoint=model_endpoint)
 

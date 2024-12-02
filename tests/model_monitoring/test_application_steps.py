@@ -151,6 +151,7 @@ def monitoring_context() -> Mock:
     )
     mock_monitoring_context.application_name = "test_data_drift_app"
     mock_monitoring_context.endpoint_id = "test_endpoint_id"
+    mock_monitoring_context.endpoint_name = "test_endpoint_name"
     mock_monitoring_context.start_infer_time = pd.Timestamp(
         "2022-01-01 00:00:00.000000"
     )
@@ -226,8 +227,9 @@ def test_push_result_to_monitoring_writer_stream(
             assert loaded_data == {
                 "application_name": "test_data_drift_app",
                 "endpoint_id": "test_endpoint_id",
+                "endpoint_name": "test_endpoint_name",
                 "start_infer_time": "2022-01-01 00:00:00.000000",
                 "end_infer_time": "2022-01-01 00:00:00.000000",
-                "event_kind": event_kind,
+                "event_kind": event_kind.value,
                 "data": json.dumps(result),
             }

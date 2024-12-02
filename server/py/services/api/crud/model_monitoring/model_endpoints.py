@@ -89,10 +89,6 @@ class ModelEndpoints:
                 session=db_session, model_endpoint_object=model_endpoint
             )
         # # Verify and enrich the model endpoint obj with the updated model uri
-        # mlrun.model_monitoring.helpers.enrich_model_endpoint_with_model_uri(
-        #     model_endpoint=model_endpoint,
-        #     model_obj=model_obj,
-        # )
 
         # 4. create a monitoring feature set & update the model endpoint object with
         # the feature_set_uri, features and labels

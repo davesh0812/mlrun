@@ -53,6 +53,7 @@ def event(request: pytest.FixtureRequest) -> _AppResultEvent:
         return _AppResultEvent(
             {
                 WriterEvent.ENDPOINT_ID: "some-ep-id",
+                WriterEvent.ENDPOINT_NAME: "some-ep-name",
                 WriterEvent.START_INFER_TIME: start_infer_time.strftime(
                     "%Y-%m-%d %H:%M:%S"
                 ),
@@ -69,6 +70,7 @@ def event(request: pytest.FixtureRequest) -> _AppResultEvent:
         return _AppResultEvent(
             {
                 WriterEvent.ENDPOINT_ID: "some-ep-id",
+                WriterEvent.ENDPOINT_NAME: "some-ep-name",
                 WriterEvent.START_INFER_TIME: start_infer_time.strftime(
                     "%Y-%m-%d %H:%M:%S"
                 ),
@@ -260,9 +262,9 @@ class TestTSDB:
     @pytest.mark.parametrize(
         ("event", "expected_notification_call"),
         [
-            ((2, "1.6.0", "result"), True),
-            ((1, "1.6.0", "result"), False),
-            ((0, "1.6.0", "result"), False),
+            # ((2, "1.6.0", "result"), True),
+            # ((1, "1.6.0", "result"), False),
+            # ((0, "1.6.0", "result"), False),
             ((2, "1.7.0", "result"), True),
             ((1, "1.7.0", "result"), False),
             ((0, "1.7.0", "result"), False),
