@@ -82,6 +82,7 @@ class _PushToMonitoringWriter(StepToDict):
         self._lazy_init()
         application_results, application_context = event
         writer_event = {
+            mm_constant.WriterEvent.ENDPOINT_NAME: application_context.endpoint_name,
             mm_constant.WriterEvent.APPLICATION_NAME: application_context.application_name,
             mm_constant.WriterEvent.ENDPOINT_ID: application_context.endpoint_id,
             mm_constant.WriterEvent.START_INFER_TIME: application_context.start_infer_time.isoformat(

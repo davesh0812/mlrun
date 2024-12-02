@@ -154,6 +154,7 @@ class ApplicationEvent:
 
 
 class WriterEvent(MonitoringStrEnum):
+    ENDPOINT_NAME = "endpoint_name"
     APPLICATION_NAME = "application_name"
     ENDPOINT_ID = "endpoint_id"
     START_INFER_TIME = "start_infer_time"

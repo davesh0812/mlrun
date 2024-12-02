@@ -264,7 +264,7 @@ class ModelMonitoringWriter(StepToDict):
         ):
             event_value = {
                 "app_name": event[WriterEvent.APPLICATION_NAME],
-                # "model": endpoint_record.get(EventFieldType.MODEL), # TODO pass mep name & function name
+                "model": event[WriterEvent.ENDPOINT_NAME],
                 "model_endpoint_id": event[WriterEvent.ENDPOINT_ID],
                 "result_name": event[ResultData.RESULT_NAME],
                 "result_value": event[ResultData.RESULT_VALUE],
