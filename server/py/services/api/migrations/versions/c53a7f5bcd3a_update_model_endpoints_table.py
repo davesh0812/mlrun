@@ -47,11 +47,13 @@ def upgrade():
     op.create_unique_constraint(
         "_mep_uc_2", "model_endpoints", ["project", "name", "uid", "function_name"]
     )
-    op.create_unique_constraint(None, "model_endpoints", ["uid"])
+    op.create_unique_constraint("uid", "model_endpoints", ["uid"])
     op.drop_constraint("_mep_model_constraint", "model_endpoints", type_="foreignkey")
     op.drop_constraint(
         "_mep_function_constraint", "model_endpoints", type_="foreignkey"
     )
+    op.drop_index("_mep_function_constraint", table_name="model_endpoints")
+    op.drop_index("_mep_model_constraint", table_name="model_endpoints")
     # ### end Alembic commands ###
 
 
@@ -71,7 +73,7 @@ def downgrade():
         ["model_uid", "project", "model_name"],
         ["uid", "project", "key"],
     )
-    op.drop_constraint(None, "model_endpoints", type_="unique")
+    op.drop_constraint("uid", "model_endpoints", type_="unique")
     op.drop_constraint("_mep_uc_2", "model_endpoints", type_="unique")
     op.create_unique_constraint(
         "_mep_uc_2", "model_endpoints", ["project", "name", "uid"]
