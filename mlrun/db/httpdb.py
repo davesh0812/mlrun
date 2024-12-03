@@ -3511,9 +3511,9 @@ class HTTPRunDB(RunDBInterface):
 
         path = f"projects/{model_endpoint.metadata.project}/model-endpoints/{model_endpoint.metadata.name}"
         response = self.api_call(
-            method="POST",
+            method=mlrun.common.types.HTTPMethod.POST,
             path=path,
-            body=dict_to_json(model_endpoint.dict()),
+            body=model_endpoint.json(),
         )
         return mlrun.common.schemas.ModelEndpoint(**response.json())
 
@@ -3535,7 +3535,7 @@ class HTTPRunDB(RunDBInterface):
 
         path = f"projects/{project}/model-endpoints/{name}"
         self.api_call(
-            method="DELETE",
+            method=mlrun.common.types.HTTPMethod.DELETE,
             path=path,
             params={
                 "function_name": function_name,
@@ -3577,7 +3577,7 @@ class HTTPRunDB(RunDBInterface):
         labels = self._parse_labels(labels)
 
         response = self.api_call(
-            method="GET",
+            method=mlrun.common.types.HTTPMethod.GET,
             path=path,
             params={
                 "name": name,
@@ -3621,7 +3621,7 @@ class HTTPRunDB(RunDBInterface):
 
         path = f"projects/{project}/model-endpoints/{name}"
         response = self.api_call(
-            method="GET",
+            method=mlrun.common.types.HTTPMethod.GET,
             path=path,
             params={
                 "function_name": function_name,
@@ -3652,9 +3652,9 @@ class HTTPRunDB(RunDBInterface):
         :return:                          The updated `ModelEndpoint` object.
         """
         attributes_keys = list(attributes.keys())
-        attributes["name"] = name or ""
+        attributes["name"] = name
+        attributes["project"] = project
         attributes["uid"] = endpoint_id or ""
-        attributes["project"] = project or ""
         model_endpoint = mlrun.common.schemas.ModelEndpoint.from_flat_dict(attributes)
         params = {
             "function_name": function_name,
@@ -3663,10 +3663,10 @@ class HTTPRunDB(RunDBInterface):
         }
         path = f"projects/{project}/model-endpoints/{name}"
         response = self.api_call(
-            method="PATCH",
+            method=mlrun.common.types.HTTPMethod.PATCH,
             path=path,
             params=params,
-            body=dict_to_json(model_endpoint.dict()),
+            body=model_endpoint.json(),
         )
 
         return mlrun.common.schemas.ModelEndpoint(**response.json())

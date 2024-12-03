@@ -1059,6 +1059,7 @@ def _init_endpoint_record(
             spec=mlrun.common.schemas.ModelEndpointSpec(
                 function_name=graph_server.function_name,
                 function_uid=function_uid,
+                function_tag=graph_server.function_tag or "latest",
                 model_class=voting_ensemble.__class__.__name__,
                 children_uids=list(voting_ensemble.routes.keys()),
             ),

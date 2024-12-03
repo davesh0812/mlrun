@@ -123,6 +123,7 @@ class ModelEndpointSpec(ObjectSpec, ModelEndpointParser):
     model_tag: Optional[list[str]] = []
     model_class: Optional[str] = ""
     function_name: Optional[str] = ""
+    function_tag: Optional[str] = ""
     function_uid: Optional[str] = ""
     feature_names: Optional[list[str]] = []
     label_names: Optional[list[str]] = []

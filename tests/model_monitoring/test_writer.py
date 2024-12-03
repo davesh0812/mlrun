@@ -262,9 +262,9 @@ class TestTSDB:
     @pytest.mark.parametrize(
         ("event", "expected_notification_call"),
         [
-            # ((2, "1.6.0", "result"), True),
-            # ((1, "1.6.0", "result"), False),
-            # ((0, "1.6.0", "result"), False),
+            ((2, "1.6.0", "result"), True),
+            ((1, "1.6.0", "result"), False),
+            ((0, "1.6.0", "result"), False),
             ((2, "1.7.0", "result"), True),
             ((1, "1.7.0", "result"), False),
             ((0, "1.7.0", "result"), False),

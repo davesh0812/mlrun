@@ -609,6 +609,7 @@ def _init_endpoint_record(
             spec=mlrun.common.schemas.ModelEndpointSpec(
                 function_name=graph_server.function_name,
                 function_uid=function_uid,
+                function_tag=graph_server.function_tag or "latest",
                 model_name=model.model_spec.metadata.key,
                 model_uid=model.model_spec.metadata.uid,
                 model_class=model.__class__.__name__,

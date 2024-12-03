@@ -199,11 +199,11 @@ class TestModelEndpointsOperations(TestMLRunSystem):
 
     def _mock_random_endpoint(
         self,
-        name,
-        function_name=None,
-        function_uid=None,
-        model_name=None,
-        model_uid=None,
+        name: str,
+        function_name: Optional[str] = None,
+        function_uid: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_uid: Optional[str] = None,
     ) -> mlrun.common.schemas.model_monitoring.ModelEndpoint:
         def random_labels():
             return {
@@ -237,7 +237,7 @@ class TestBasicModelMonitoring(TestMLRunSystem):
 
     project_name = "pr-basic-model-monitoring"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: Optional[str] = "quay.io/davesh0812/mlrun:1.8.0"
+    image: Optional[str] = None
 
     # @pytest.mark.timeout(540)
     def test_basic_model_monitoring(self) -> None:
@@ -321,6 +321,8 @@ class TestBasicModelMonitoring(TestMLRunSystem):
 
         endpoint = endpoints_list.endpoints[0]
         print(endpoint)
+
+        assert not endpoint.spec.feature_stats
 
         self._assert_model_endpoint_tags_and_labels(
             endpoint=endpoint,

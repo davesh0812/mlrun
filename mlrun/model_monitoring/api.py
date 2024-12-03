@@ -351,9 +351,13 @@ def _generate_model_endpoint(
         raise mlrun.errors.MLRunInvalidArgumentError(
             "Please provide either a function name or a valid MLRun context"
         )
-    model_obj: mlrun.artifacts.ModelArtifact = (
-        mlrun.datastore.store_resources.get_store_resource(model_path, db=db_session)
-    )
+    model_obj = None
+    if model_path:
+        model_obj: mlrun.artifacts.ModelArtifact = (
+            mlrun.datastore.store_resources.get_store_resource(
+                model_path, db=db_session
+            )
+        )
     model_endpoint = mlrun.common.schemas.ModelEndpoint(
         metadata=mlrun.common.schemas.ModelEndpointMetadata(
             project=project,
@@ -362,8 +366,8 @@ def _generate_model_endpoint(
         ),
         spec=mlrun.common.schemas.ModelEndpointSpec(
             function_name=function_name,
-            model_name=model_obj.metadata.key,
-            model_uid=model_obj.metadata.uid,
+            model_name=model_obj.metadata.key if model_path else None,
+            model_uid=model_obj.metadata.uid if model_path else None,
             model_class="drift-analysis",
         ),
         status=mlrun.common.schemas.ModelEndpointStatus(

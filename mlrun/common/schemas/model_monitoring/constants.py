@@ -41,6 +41,7 @@ class ModelEndpointSchema(MonitoringStrEnum):
 
     # spec
     FUNCTION_NAME = "function_name"
+    FUNCTION_TAG = "function_tag"
     FUNCTION_UID = "function_uid"
     MODEL_NAME = "model_name"
     MODEL_TAG = "model_tag"
@@ -48,23 +49,23 @@ class ModelEndpointSchema(MonitoringStrEnum):
     MODEL_UID = "model_uid"
     FEATURE_NAMES = "feature_names"
     LABEL_NAMES = "label_names"
+    FEATURE_STATS = "feature_stats"
+    MONITORING_FEATURE_SET_URI = "monitoring_feature_set_uri"
+    CHILDREN = "children"
+    CHILDREN_UIDS = "children_uids"
+    FUNCTION_URI = "function_uri"
+    MODEL_URI = "model_uri"
 
     # status
     STATE = "state"
     MONITORING_MODE = "monitoring_mode"
-    MONITORING_FEATURE_SET_URI = "monitoring_feature_set_uri"
-    CHILDREN = "children"
-    CHILDREN_UIDS = "children_uids"
     FIRST_REQUEST = "first_request"
-    FUNCTION_URI = "function_uri"
-    MODEL_URI = "model_uri"
 
     # status - operative
     LAST_REQUEST = "last_request"
     DRIFT_STATUS = "drift_status"
     AVG_LATENCY = "avg_latency"
     ERROR_COUNT = "error_count"
-    FEATURE_STATS = "feature_stats"
     CURRENT_STATS = "current_stats"
     DRIFT_MEASURES = "drift_measures"
 
