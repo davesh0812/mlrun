@@ -712,6 +712,7 @@ class ServingRuntime(RemoteRuntime):
             default_content_type=self.spec.default_content_type,
             function_name=self.metadata.name,
             function_tag=self.metadata.tag,
+            project=self.metadata.project,
             **kwargs,
         )
         server.init_states(

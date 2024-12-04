@@ -101,7 +101,7 @@ def test_ensemble_tracking():
 def test_tracked_function(rundb_mock, enable_tracking):
     with patch("mlrun.get_run_db", return_value=rundb_mock):
         project = mlrun.new_project("test-pro", save=False)
-        fn = mlrun.new_function("test-fn", kind="serving")
+        fn = mlrun.new_function("test-fn", kind="serving", project=project.name)
         model_uri = _log_model(project)
         fn.add_model("m1", model_uri, "ModelTestingClass", multiplier=5)
         fn.set_tracking("dummy://", enable_tracking=enable_tracking)

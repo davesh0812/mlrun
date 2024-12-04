@@ -665,12 +665,13 @@ class RunDBMock:
         feature_analysis: bool = False,
     ) -> mlrun.common.schemas.ModelEndpoint:
         mep = ModelEndpoint(
-            metadata=mlrun.common.schemas.ModelEndpointMetadata(name=name),
+            metadata=mlrun.common.schemas.ModelEndpointMetadata(
+                name=name, project=project
+            ),
             spec=mlrun.common.schemas.ModelEndpointSpec(),
             status=mlrun.common.schemas.ModelEndpointStatus(),
         )
         mep.metadata.uid = endpoint_id
-        mep.metadata.project = project
         mep.spec.monitoring_mode = ModelMonitoringMode.enabled
         mep.spec.function_name = function_name
         return mep

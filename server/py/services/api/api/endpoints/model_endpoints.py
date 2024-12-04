@@ -102,7 +102,7 @@ async def patch_model_endpoint(
     name: str,
     project: ProjectAnnotation,
     model_endpoint: schemas.ModelEndpoint,
-    attributes_keys: list[str] = None,
+    attributes_keys: list[str],
     function_name: Optional[str] = None,
     endpoint_id: Optional[EndpointIDAnnotation] = None,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
