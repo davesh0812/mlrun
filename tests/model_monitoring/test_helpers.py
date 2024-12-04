@@ -392,7 +392,9 @@ class TestBumpModelEndpointLastRequest:
     @pytest.fixture
     def empty_model_endpoint() -> ModelEndpoint:
         return ModelEndpoint(
-            metadata=mlrun.common.schemas.ModelEndpointMetadata(name="test"),
+            metadata=mlrun.common.schemas.ModelEndpointMetadata(
+                name="test", project="test-project"
+            ),
             spec=mlrun.common.schemas.ModelEndpointSpec(),
             status=mlrun.common.schemas.ModelEndpointStatus(),
         )
