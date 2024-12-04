@@ -106,12 +106,12 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             name=model_endpoint.metadata.name,
         )
 
-        assert endpoint_before_update.status.monitoring_mode == "disabled"
+        assert endpoint_before_update.status.monitoring_mode == "enabled"
         assert endpoint_before_update.spec.model_class == "modelcc"
 
         # Create attributes dictionary according to the required format
         attributes = {
-            "monitoring_mode": "enabled",
+            "monitoring_mode": "disabled",
             "model_class": "modelcc-2",
         }
 
@@ -128,7 +128,7 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             name=model_endpoint.metadata.name,
         )
 
-        assert endpoint_after_update.status.monitoring_mode == "enabled"
+        assert endpoint_after_update.status.monitoring_mode == "disabled"
         assert endpoint_after_update.spec.model_class == "modelcc-2"
 
     def test_list_endpoints_on_empty_project(self):
@@ -224,7 +224,7 @@ class TestModelEndpointsOperations(TestMLRunSystem):
                 model_class="modelcc",
             ),
             status=mlrun.common.schemas.model_monitoring.ModelEndpointStatus(
-                monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled,
+                monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled,
             ),
         )
 
@@ -239,7 +239,7 @@ class TestBasicModelMonitoring(TestMLRunSystem):
     # Set image to "<repo>/mlrun:<tag>" for local testing
     image: Optional[str] = None
 
-    # @pytest.mark.timeout(540)
+    @pytest.mark.timeout(540)
     def test_basic_model_monitoring(self) -> None:
         # Main validations:
         # 1 - a single model endpoint is created
@@ -320,7 +320,6 @@ class TestBasicModelMonitoring(TestMLRunSystem):
         assert len(endpoints_list.endpoints) == 1
 
         endpoint = endpoints_list.endpoints[0]
-        print(endpoint)
 
         assert not endpoint.spec.feature_stats
 
@@ -810,7 +809,7 @@ class TestBatchDrift(TestMLRunSystem):
 
     project_name = "pr-batch-drift"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: Optional[str] = None
+    image: Optional[str] = "quay.io/davesh0812/mlrun:1.8.0"
 
     def custom_setup(self):
         mlrun.runtimes.utils.global_context.set(None)
@@ -879,10 +878,8 @@ class TestBatchDrift(TestMLRunSystem):
         )
 
         # Record results and trigger the monitoring batch job
-        endpoint_id = "123123123123"
-        mlrun.model_monitoring.api.record_results(
+        model_endpoint = mlrun.model_monitoring.api.record_results(
             project=project.metadata.name,
-            endpoint_id=endpoint_id,
             model_path=project.get_artifact_uri(
                 key=model_name, category="model", tag="latest"
             ),
@@ -896,7 +893,10 @@ class TestBatchDrift(TestMLRunSystem):
         sleep(130)
 
         model_endpoint = mlrun.model_monitoring.api.get_or_create_model_endpoint(
-            project=project.name, endpoint_id=endpoint_id
+            project=project.name,
+            endpoint_id=model_endpoint.metadata.uid,
+            model_endpoint_name="batch-drift-test",
+            function_name="batch-drift-function",
         )
         # Validate that model_uri is based on models prefix
         self._validate_model_uri(model_obj=model, model_endpoint=model_endpoint)
@@ -906,7 +906,7 @@ class TestBatchDrift(TestMLRunSystem):
             labels={
                 "mlrun/producer-type": "model-monitoring-app",
                 "mlrun/app-name": "histogram-data-drift",
-                "mlrun/endpoint-id": endpoint_id,
+                "mlrun/endpoint-id": model_endpoint.metadata.uid,
             }
         )
         assert len(artifacts) == 2
