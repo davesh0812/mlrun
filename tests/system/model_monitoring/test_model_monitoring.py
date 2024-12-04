@@ -219,9 +219,11 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             spec=mlrun.common.schemas.model_monitoring.ModelEndpointSpec(
                 function_name=function_name,
                 function_uid=function_uid,
+                function_tag="v1",
                 model_name=model_name,
                 model_uid=model_uid,
                 model_class="modelcc",
+                model_tag="latest",
             ),
             status=mlrun.common.schemas.model_monitoring.ModelEndpointStatus(
                 monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled,
