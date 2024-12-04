@@ -5016,10 +5016,8 @@ class SQLDB(DBInterface):
             )
 
         if start or end:
-            start = start or datetime.min
-            end = end or datetime.max
-            query = query.filter(
-                and_(ModelEndpoint.created >= start, ModelEndpoint.created <= end)
+            query = generate_time_range_query(
+                query=query, field=ModelEndpoint.created, since=start, until=end
             )
 
         if latest_only:
@@ -6760,7 +6758,7 @@ class SQLDB(DBInterface):
                 f"Conflict between requested function and function in MEP body, MEP function is {function_name} "
                 f"while body_function is {body_function}"
             )
-
+        current_time = datetime.now(timezone.utc)
         mep = ModelEndpoint(
             name=name,
             project=project,
@@ -6769,6 +6767,8 @@ class SQLDB(DBInterface):
             model_uid=model_endpoint.spec.model_uid,
             model_name=model_endpoint.spec.model_name,
             endpoint_type=model_endpoint.metadata.endpoint_type.value,
+            created=current_time,
+            updated=current_time,
         )
 
         update_labels(mep, model_endpoint.metadata.labels)

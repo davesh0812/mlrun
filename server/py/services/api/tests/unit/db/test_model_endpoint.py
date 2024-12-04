@@ -237,7 +237,7 @@ class TestModelEndpoint(TestDatabaseBase):
         assert len(list_mep) == 2
 
         model_endpoint.metadata.endpoint_type = EndpointType.LEAF_EP
-        self._db.store_model_endpoint(
+        last_stored_mep = self._db.store_model_endpoint(
             self._db_session,
             model_endpoint,
             name=model_endpoint.metadata.name,
@@ -250,6 +250,13 @@ class TestModelEndpoint(TestDatabaseBase):
         ).endpoints
 
         assert len(list_mep) == 2
+
+        list_mep = self._db.list_model_endpoints(
+            self._db_session,
+            project=model_endpoint.metadata.project,
+            start=last_stored_mep.metadata.created,
+        ).endpoints
+        assert len(list_mep) == 1
 
         self._db.delete_model_endpoint(
             self._db_session,
