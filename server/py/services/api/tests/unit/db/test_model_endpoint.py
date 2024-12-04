@@ -330,6 +330,7 @@ class TestModelEndpoint(TestDatabaseBase):
                 "function_uid": f"{unversioned_tagged_object_uid_prefix}latest",
                 "model_uid": model_uids[1],
                 "model_name": "model-1",
+                "model_tag": "latest",
             },
             status={"monitoring_mode": "enabled"},
         )
@@ -350,7 +351,7 @@ class TestModelEndpoint(TestDatabaseBase):
         assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
         assert model_endpoint_from_db.metadata.project == "project-1"
         assert model_endpoint_from_db.spec.model_name == "model-1"
-        assert model_endpoint_from_db.spec.model_tag == ["latest"]
+        assert model_endpoint_from_db.spec.model_tag == "latest"
 
         artifact = {
             "metadata": {"tree": "artifact_tree"},
@@ -374,7 +375,7 @@ class TestModelEndpoint(TestDatabaseBase):
         assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
         assert model_endpoint_from_db.metadata.project == "project-1"
         assert model_endpoint_from_db.spec.model_name == "model-1"
-        assert model_endpoint_from_db.spec.model_tag == []
+        assert model_endpoint_from_db.spec.model_tag is None
 
         self._db.delete_model_endpoint(
             self._db_session,

@@ -5247,6 +5247,12 @@ class SQLDB(DBInterface):
                     hash_key=function_full_dict.get("metadata", {}).get("hash"),
                 )
             )
+            curr_tag = model_endpoint_full_dict[ModelEndpointSchema.FUNCTION_TAG]
+            model_endpoint_full_dict[ModelEndpointSchema.FUNCTION_TAG] = (
+                curr_tag
+                if curr_tag in [tag.name for tag in model_endpoint_record.function.tags]
+                else None
+            )
         return model_endpoint_full_dict
 
     @staticmethod
@@ -5257,9 +5263,12 @@ class SQLDB(DBInterface):
             model_endpoint_full_dict[ModelEndpointSchema.MODEL_NAME] = (
                 model_endpoint_record.model.key
             )
-            model_endpoint_full_dict[ModelEndpointSchema.MODEL_TAG] = [
-                tag.name for tag in model_endpoint_record.model.tags
-            ]
+            curr_tag = model_endpoint_full_dict[ModelEndpointSchema.MODEL_TAG]
+            model_endpoint_full_dict[ModelEndpointSchema.MODEL_TAG] = (
+                curr_tag
+                if curr_tag in [tag.name for tag in model_endpoint_record.model.tags]
+                else None
+            )
             model_artifact_uri = mlrun.datastore.get_store_uri(
                 kind=mlrun.utils.helpers.StorePrefix.Model,
                 uri=generate_artifact_uri(

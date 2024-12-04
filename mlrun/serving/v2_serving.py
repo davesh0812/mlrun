@@ -599,6 +599,7 @@ def _init_endpoint_record(
             model_name=model.model_spec.metadata.key,
             model_uid=model.model_spec.metadata.uid,
             model_class=model.__class__.__name__,
+            model_tag=model.model_spec.tag,
         )
         model_endpoint = mlrun.common.schemas.ModelEndpoint(
             metadata=mlrun.common.schemas.ModelEndpointMetadata(

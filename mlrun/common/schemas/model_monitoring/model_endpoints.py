@@ -121,7 +121,7 @@ class ModelEndpointMetadata(ObjectMetadata, ModelEndpointParser):
 class ModelEndpointSpec(ObjectSpec, ModelEndpointParser):
     model_uid: Optional[str] = ""
     model_name: Optional[str] = ""
-    model_tag: Optional[list[str]] = []
+    model_tag: Optional[str] = ""
     model_class: Optional[str] = ""
     function_name: Optional[str] = ""
     function_tag: Optional[str] = ""
@@ -175,7 +175,6 @@ class ModelEndpoint(BaseModel):
             ModelEndpointSchema.DRIFT_MEASURES,
             ModelEndpointSchema.FUNCTION_URI,
             ModelEndpointSchema.MODEL_URI,
-            ModelEndpointSchema.RESULT_STATUS,
         }
         # Initialize a flattened dictionary that will be filled with the model endpoint dictionary attributes
         flatten_dict = {}
