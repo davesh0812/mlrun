@@ -13,8 +13,9 @@
 # limitations under the License.
 #
 
+from datetime import datetime
+
 import pytest
-from black import datetime
 
 import mlrun
 import mlrun.common.schemas
@@ -74,7 +75,6 @@ class TestModelEndpoint(TestDatabaseBase):
         # store artifact
         for i in range(2):
             model_uids.append(self._store_artifact(f"model-{i}"))
-        print(model_uids)
         # store function
         function_hash_key = self._store_function()
         model_endpoint = mlrun.common.schemas.ModelEndpoint(
@@ -85,7 +85,7 @@ class TestModelEndpoint(TestDatabaseBase):
                 "model_uid": model_uids[1],
                 "model_name": "model-1",
             },
-            status={"monitoring_mode": "enabled", "last_request": str(datetime.now())},
+            status={"monitoring_mode": "enabled", "last_request": datetime.now()},
         )
         for i in range(2):
             mep = self._db.store_model_endpoint(
@@ -270,7 +270,7 @@ class TestModelEndpoint(TestDatabaseBase):
             metadata={"name": "model-endpoint-1", "project": "project-1"},
             spec={
                 "function_name": "function-1",
-                "function_uid": f"{unversioned_tagged_object_uid_prefix}" f"latest",
+                "function_uid": f"{unversioned_tagged_object_uid_prefix}latest",
                 "model_uid": model_uids[1],
                 "model_name": "model-1",
             },
@@ -525,7 +525,7 @@ class TestModelEndpoint(TestDatabaseBase):
                 "function_name": "function-1",
                 "function_uid": f"{unversioned_tagged_object_uid_prefix}latest",
             },
-            status={"monitoring_mode": "enabled", "last_request": str(datetime.now())},
+            status={"monitoring_mode": "enabled", "last_request": datetime.now()},
         )
         mep = self._db.store_model_endpoint(
             self._db_session,
@@ -556,7 +556,7 @@ class TestModelEndpoint(TestDatabaseBase):
                 "function_name": None,
                 "function_uid": None,
             },
-            status={"monitoring_mode": "enabled", "last_request": str(datetime.now())},
+            status={"monitoring_mode": "enabled", "last_request": datetime.now()},
         )
         mep = self._db.store_model_endpoint(
             self._db_session,

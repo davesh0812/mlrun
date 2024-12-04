@@ -235,7 +235,7 @@ def update_model_endpoint_last_request(
     :param db:              DB interface.
     """
     is_batch_endpoint = (
-        model_endpoint.metadata.endpoint_type != mm_constants.EndpointType.BATCH_EP
+        model_endpoint.metadata.endpoint_type == mm_constants.EndpointType.BATCH_EP
     )
     if not is_batch_endpoint:
         logger.info(
