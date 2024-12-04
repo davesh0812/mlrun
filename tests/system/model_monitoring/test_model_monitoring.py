@@ -811,7 +811,7 @@ class TestBatchDrift(TestMLRunSystem):
 
     project_name = "pr-batch-drift"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: Optional[str] = "quay.io/davesh0812/mlrun:1.8.0"
+    image: Optional[str] = None
 
     def custom_setup(self):
         mlrun.runtimes.utils.global_context.set(None)
