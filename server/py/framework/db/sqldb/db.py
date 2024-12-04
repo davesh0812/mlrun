@@ -5220,6 +5220,8 @@ class SQLDB(DBInterface):
             model_endpoint_record, model_endpoint_full_dict
         )
 
+        model_endpoint_record
+
         model_endpoint_full_dict = (
             mlrun.common.formatters.ModelEndpointFormat.format_obj(
                 model_endpoint_full_dict, format_

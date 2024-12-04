@@ -209,7 +209,6 @@ class EventStreamProcessor:
             )
 
         apply_map_feature_names()
-        self.aggregate_windows
         tsdb_connector.apply_monitoring_stream_steps(
             graph=graph,
             aggregate_windows=self.aggregate_windows,

@@ -46,18 +46,20 @@ EndpointIDAnnotation = Annotated[
 
 
 @router.post(
-    "/{name}",
+    "",
     status_code=HTTPStatus.CREATED.value,
     response_model=schemas.ModelEndpoint,
 )
 async def create_model_endpoint(
     model_endpoint: schemas.ModelEndpoint,
+    project: ProjectAnnotation,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
 ) -> schemas.ModelEndpoint:
     """
     Create a new model endpoint record in the DB.
     :param model_endpoint:  The model endpoint object.
+    :param project:         The name of the project.
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database.
 
@@ -67,6 +69,11 @@ async def create_model_endpoint(
         "Creating Model Endpoint record",
         model_endpoint_metadata=model_endpoint.metadata,
     )
+    if project != model_endpoint.metadata.project:
+        raise MLRunInvalidArgumentError(
+            f"Project name in the URL '{project}' does not match the project name in the model endpoint metadata "
+            f"'{model_endpoint.metadata.project}'. User is not allowed to create model endpoint in a different project."
+        )
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             resource_type=schemas.AuthorizationResourceTypes.model_endpoint,
@@ -192,16 +199,16 @@ async def delete_model_endpoint(
 )
 async def list_model_endpoints(
     project: ProjectAnnotation,
-    name: str = Query(None),
-    model_name: str = Query(None),
-    function_name: str = Query(None),
+    name: Optional[str] = Query(None),
+    model_name: Optional[str] = Query(None),
+    function_name: Optional[str] = Query(None),
     labels: list[str] = Query([], alias="label"),
-    start: Union[datetime, str] = Query(default=None),
-    end: Union[datetime, str] = Query(default=None),
+    start: Optional[datetime] = Query(default=None),
+    end: Optional[datetime] = Query(default=None),
     top_level: bool = Query(False, alias="top-level"),
-    tsdb_metrics: bool = Query(True, alias="tsdb_metrics"),
+    tsdb_metrics: bool = Query(True),
     uids: list[str] = Query(None, alias="uid"),
-    latest_only: bool = Query(False, alias="latest_only"),
+    latest_only: bool = Query(False),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(deps.get_db_session),
 ) -> schemas.ModelEndpointList:
@@ -223,13 +230,7 @@ async def list_model_endpoints(
     :param db_session:      A session that manages the current dialog with the database.
     :return:                A list of model endpoints.
     """
-    if isinstance(start, str) or isinstance(end, str):
-        logger.warn(
-            "Received string for start or end time, this is deprecated and will be removed in 1.9.0,"
-            "please use datetime objects instead. We don't support relative time strings anymore.",
-            DeprecationWarning,
-        )
-        start, end = None, None
+
     await framework.utils.auth.verifier.AuthVerifier().query_project_permissions(
         project_name=project,
         action=schemas.AuthorizationAction.read,
@@ -267,13 +268,13 @@ async def list_model_endpoints(
 
 
 async def _verify_model_endpoint_read_permission(
-    *, project: str, name: str, auth_info: schemas.AuthInfo
+    *, project: str, name_or_uid: str, auth_info: schemas.AuthInfo
 ) -> None:
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             schemas.AuthorizationResourceTypes.model_endpoint,
             project_name=project,
-            resource_name=name,
+            resource_name=name_or_uid,
             action=schemas.AuthorizationAction.read,
             auth_info=auth_info,
         )
@@ -288,10 +289,10 @@ async def _verify_model_endpoint_read_permission(
 async def get_model_endpoint(
     name: str,
     project: ProjectAnnotation,
-    function_name: Optional[str] = Query(default=None),
+    function_name: Optional[str] = None,
     endpoint_id: Optional[EndpointIDAnnotation] = None,
-    tsdb_metrics: bool = Query(default=True),
-    feature_analysis: bool = Query(default=False),
+    tsdb_metrics: bool = True,
+    feature_analysis: bool = False,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(deps.get_db_session),
 ) -> schemas.ModelEndpoint:
@@ -309,7 +310,7 @@ async def get_model_endpoint(
     :return:                    The model endpoint object.
     """
     await _verify_model_endpoint_read_permission(
-        project=project, name=name, auth_info=auth_info
+        project=project, name_or_uid=name, auth_info=auth_info
     )
 
     return await run_in_threadpool(
@@ -322,9 +323,6 @@ async def get_model_endpoint(
         tsdb_metrics=tsdb_metrics,
         db_session=db_session,
     )
-
-
-#######################################  METRICS EPs #############################################
 
 
 @router.get(
@@ -347,7 +345,7 @@ async def get_model_endpoint_monitoring_metrics(
     :returns:           A list of the application metrics or/and results for this model endpoint.
     """
     await _verify_model_endpoint_read_permission(
-        project=project, name=endpoint_id, auth_info=auth_info
+        project=project, name_or_uid=endpoint_id, auth_info=auth_info
     )
     metrics: list[mm_endpoints.ModelEndpointMonitoringMetric] = []
     tasks: list[asyncio.Task] = []
@@ -414,7 +412,7 @@ async def _get_metrics_values_params(
     :return: _MetricsValuesParams object with the validated data.
     """
     await _verify_model_endpoint_read_permission(
-        project=project, name=endpoint_id, auth_info=auth_info
+        project=project, name_or_uid=endpoint_id, auth_info=auth_info
     )
     if start is None and end is None:
         end = mlrun.utils.helpers.datetime_now()

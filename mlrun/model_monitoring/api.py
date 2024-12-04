@@ -27,6 +27,9 @@ import mlrun.feature_store
 import mlrun.model_monitoring.applications as mm_app
 import mlrun.serving
 from mlrun.common.schemas import ModelEndpoint
+from mlrun.common.schemas.model_monitoring import (
+    FunctionURI,
+)
 from mlrun.data_types.infer import InferOptions, get_df_stats
 from mlrun.utils import datetime_now, logger
 
@@ -346,11 +349,9 @@ def _generate_model_endpoint(
     :return `mlrun.model_monitoring.model_endpoint.ModelEndpoint` object.
     """
     if not function_name and context:
-        function_name = context.to_dict()["spec"]["function"]  # uri ??
-    elif not function_name and not context:
-        raise mlrun.errors.MLRunInvalidArgumentError(
-            "Please provide either a function name or a valid MLRun context"
-        )
+        function_name = FunctionURI.from_string(
+            context.to_dict()["spec"]["function"]
+        ).function
     model_obj = None
     if model_path:
         model_obj: mlrun.artifacts.ModelArtifact = (
@@ -358,6 +359,7 @@ def _generate_model_endpoint(
                 model_path, db=db_session
             )
         )
+    current_time = datetime_now()
     model_endpoint = mlrun.common.schemas.ModelEndpoint(
         metadata=mlrun.common.schemas.ModelEndpointMetadata(
             project=project,
@@ -372,8 +374,8 @@ def _generate_model_endpoint(
         ),
         status=mlrun.common.schemas.ModelEndpointStatus(
             monitoring_mode=monitoring_mode,
-            first_request=datetime_now(),
-            last_request=datetime_now(),
+            first_request=current_time,
+            last_request=current_time,
         ),
     )
 

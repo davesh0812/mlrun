@@ -23,6 +23,7 @@ import mlrun.common.schemas.model_monitoring
 import mlrun.model_monitoring
 from mlrun.utils import logger, now_date
 
+from ..common.schemas.model_monitoring import ModelEndpointSchema
 from .server import GraphServer
 from .utils import StepToDict, _extract_input_data, _update_result_body
 
@@ -588,7 +589,7 @@ def _init_endpoint_record(
         tag=graph_server.function_tag or "latest",
     )
     function_uid = function.get("metadata", {}).get("uid")
-    if not model_ep:
+    if not model_ep and model.context.server.track_models:
         logger.info(
             "Creating a new model endpoint record",
             name=model.name,
@@ -626,18 +627,18 @@ def _init_endpoint_record(
     elif model_ep:
         attributes = {}
         if function_uid != model_ep.spec.function_uid:
-            attributes["function_uid"] = function_uid
+            attributes[ModelEndpointSchema.FUNCTION_UID] = function_uid
         if model.model_spec.metadata.key != model_ep.spec.model_name:
-            attributes["model_name"] = model.model_spec.metadata.key
+            attributes[ModelEndpointSchema.MODEL_NAME] = model.model_spec.metadata.key
         if model.model_spec.metadata.uid != model_ep.spec.model_uid:
-            attributes["model_uid"] = model.model_spec.metadata.uid
+            attributes[ModelEndpointSchema.MODEL_UID] = model.model_spec.metadata.uid
         if model.__class__.__name__ != model_ep.spec.model_class:
-            attributes["model_class"] = model.__class__.__name__
+            attributes[ModelEndpointSchema.MODEL_CLASS] = model.__class__.__name__
         if (
             model_ep.status.monitoring_mode
             == mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
         ) != model.context.server.track_models:
-            attributes["monitoring_mode"] = (
+            attributes[ModelEndpointSchema.MONITORING_MODE] = (
                 mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
                 if model.context.server.track_models
                 else mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled
@@ -658,6 +659,7 @@ def _init_endpoint_record(
                 name=model_ep.metadata.name,
                 function_name=model_ep.spec.function_name,
             )
+    else:
+        return None
 
     return model_ep.metadata.uid
-    # return None

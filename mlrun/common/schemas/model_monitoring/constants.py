@@ -63,7 +63,7 @@ class ModelEndpointSchema(MonitoringStrEnum):
 
     # status - operative
     LAST_REQUEST = "last_request"
-    DRIFT_STATUS = "drift_status"
+    RESULT_STATUS = "result_status"
     AVG_LATENCY = "avg_latency"
     ERROR_COUNT = "error_count"
     CURRENT_STATS = "current_stats"

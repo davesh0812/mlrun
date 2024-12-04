@@ -331,8 +331,8 @@ class MonitoringApplicationController:
                         storage_options=self.storage_options,
                     )
                 else:
-                    logger.info(
-                        "Skipping endpoint, not ready for monitoring",
+                    logger.debug(
+                        "Skipping endpoint, not ready or not suitable for monitoring",
                         endpoint_id=endpoint.metadata.uid,
                         endpoint_name=endpoint.metadata.name,
                     )

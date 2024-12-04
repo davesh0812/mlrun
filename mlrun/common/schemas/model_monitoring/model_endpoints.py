@@ -21,6 +21,7 @@ from pydantic.v1 import BaseModel, Field, constr
 # TODO: remove the unused import below after `mlrun.datastore` and `mlrun.utils` usage is removed.
 # At the moment `make lint` fails if this is removed.
 from ..object import ObjectKind, ObjectMetadata, ObjectSpec, ObjectStatus
+from . import ModelEndpointSchema
 from .constants import (
     FQN_REGEX,
     MODEL_ENDPOINT_ID_PATTERN,
@@ -95,7 +96,7 @@ class ModelEndpointParser(abc.ABC, BaseModel):
     def from_flat_dict(
         cls, endpoint_dict: dict, json_parse_values: Optional[list] = None
     ) -> "ModelEndpointParser":
-        """Create a `ModelEndpointMetadata` object from an endpoint dictionary
+        """Create a `ModelEndpointParser` object from an endpoint dictionary
 
         :param endpoint_dict:     Model endpoint dictionary.
         :param json_parse_values: List of dictionary keys with a JSON string value that will be parsed into a
@@ -112,8 +113,8 @@ class ModelEndpointParser(abc.ABC, BaseModel):
 
 
 class ModelEndpointMetadata(ObjectMetadata, ModelEndpointParser):
-    project: constr(regex=PROJECT_PATTERN) = ""
-    endpoint_type: Optional[EndpointType] = EndpointType.NODE_EP
+    project: constr(regex=PROJECT_PATTERN)
+    endpoint_type: EndpointType = EndpointType.NODE_EP
     uid: Optional[constr(regex=MODEL_ENDPOINT_ID_PATTERN)]
 
 
@@ -169,11 +170,12 @@ class ModelEndpoint(BaseModel):
         model_endpoint_dictionary = self.dict(exclude={"kind"})
         exclude = {
             "tag",
-            "feature_stats",
-            "current_stats",
-            "drift_measures",
-            "function_uri",
-            "model_uri",
+            ModelEndpointSchema.FEATURE_STATS,
+            ModelEndpointSchema.CURRENT_STATS,
+            ModelEndpointSchema.DRIFT_MEASURES,
+            ModelEndpointSchema.FUNCTION_URI,
+            ModelEndpointSchema.MODEL_URI,
+            ModelEndpointSchema.RESULT_STATUS,
         }
         # Initialize a flattened dictionary that will be filled with the model endpoint dictionary attributes
         flatten_dict = {}

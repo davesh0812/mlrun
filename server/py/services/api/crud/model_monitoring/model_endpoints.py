@@ -124,25 +124,8 @@ class ModelEndpoints:
             # Link model endpoint object to feature set URI
             model_endpoint.spec.monitoring_feature_set_uri = monitoring_feature_set.uri
             attributes["monitoring_feature_set_uri"] = monitoring_feature_set.uri
-            # Create model monitoring schedules file
-            ModelMonitoringSchedulesFile.from_model_endpoint(model_endpoint).create()
-            # Create model monitoring stats files:
-            cls._create_model_monitoring_stats_files(model_endpoint=model_endpoint)
-
-        # If feature_stats was either populated by model_uri or by manual input, make sure to keep the names
-        # of the features. If feature_names was supplied, replace the names set in feature_stats, otherwise - make
-        # sure to keep a clean version of the names
-        if model_endpoint.spec.feature_stats:
-            logger.info("Feature stats found, cleaning feature names")
-
-            model_endpoint.spec.feature_stats = cls._adjust_stats(
-                model_endpoint=model_endpoint
-            )
-
-            logger.info(
-                "Done preparing stats",
-                feature_names=model_endpoint.spec.feature_names,
-            )
+            # Create model monitoring json files
+            cls._create_model_monitoring_json_files(model_endpoint=model_endpoint)
 
         # 5. write the model endpoint to the db again
         framework.utils.singletons.db.get_db().update_model_endpoint(
@@ -161,9 +144,16 @@ class ModelEndpoints:
         return model_endpoint
 
     @classmethod
-    def _create_model_monitoring_stats_files(
+    def _create_model_monitoring_json_files(
         cls, model_endpoint: mlrun.common.schemas.ModelEndpoint
     ):
+        logger.info(
+            "Creating model endpoint json files",
+            model_endpoint_uid=model_endpoint.metadata.uid,
+        )
+        ModelMonitoringSchedulesFile.from_model_endpoint(
+            model_endpoint=model_endpoint
+        ).create()
         ModelMonitoringCurrentStatsFile.from_model_endpoint(
             model_endpoint=model_endpoint
         ).create()
@@ -282,10 +272,10 @@ class ModelEndpoints:
             model_endpoint.spec.function_uri
         )
 
-        model_name = model_endpoint.spec.model_name.replace(":", "-")
+        name = model_endpoint.metadata.name.replace(":", "-")
 
         feature_set = mlrun.feature_store.FeatureSet(
-            f"monitoring-{serving_function_name}-{model_name}",
+            f"monitoring-{serving_function_name}-{name}",
             entities=[
                 mlrun.common.schemas.model_monitoring.FeatureSetFeatures.entity()
             ],
@@ -377,7 +367,7 @@ class ModelEndpoints:
             function_name=function_name,
             uid=endpoint_id,
         )
-        # Delete stats files
+        # Delete the model endpoint files
         for uid in uids:
             ModelMonitoringCurrentStatsFile(project=project, endpoint_id=uid).delete()
             ModelMonitoringDriftMeasuresFile(project=project, endpoint_id=uid).delete()
@@ -527,25 +517,6 @@ class ModelEndpoints:
 
         return endpoint_list
 
-    def verify_project_has_no_model_endpoints(
-        self, project_name: str, db_session: sqlalchemy.orm.Session
-    ):
-        """Verify that there no  model endpoint records in the DB by trying to list all of the project model endpoints.
-        This method is usually being used during the process of deleting a project.
-
-        :param project_name: project name.
-        """
-
-        if not mlrun.mlconf.igz_version or not mlrun.mlconf.v3io_api:
-            return
-        endpoints = self.list_model_endpoints(
-            project=project_name, db_session=db_session
-        )
-        if endpoints.endpoints:
-            raise mlrun.errors.MLRunPreconditionFailedError(
-                f"Project {project_name} can not be deleted since related resources found: model endpoints"
-            )
-
     def delete_model_endpoints_resources(
         self,
         project_name: str,
@@ -593,9 +564,6 @@ class ModelEndpoints:
                 )
                 return
 
-        self.verify_project_has_no_model_endpoints(
-            project_name=project_name, db_session=db_session
-        )
         try:
             # Delete model monitoring TSDB resources
             tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
@@ -756,35 +724,14 @@ class ModelEndpoints:
             )
 
     @staticmethod
-    def _adjust_stats(
-        model_endpoint,
-    ) -> mlrun.common.model_monitoring.helpers.FeatureStats:
-        """
-        Create a clean version of feature names for `feature_stats`.
-
-        :param model_endpoint:    An object representing the model endpoint.
-        :return: A Dictionary of feature stats with cleaned names
-        """
-        clean_feature_stats = {}
-        for feature, stats in model_endpoint.spec.feature_stats.items():
-            clean_name = mlrun.feature_store.api.norm_column_name(feature)
-            clean_feature_stats[clean_name] = stats
-            # Exclude the label columns from the feature names
-            if (
-                model_endpoint.spec.label_names
-                and clean_name in model_endpoint.spec.label_names
-            ):
-                continue
-        return clean_feature_stats
-
-    @staticmethod
-    def _add_real_time_metrics(
+    def _get_real_time_metrics(
         model_endpoint_object: mlrun.common.schemas.ModelEndpoint,
         metrics: typing.Optional[list[str]] = None,
         start: str = "now-1h",
         end: str = "now",
-    ) -> mlrun.common.schemas.ModelEndpoint:
-        """Add real time metrics from the time series DB to a provided `ModelEndpoint` object. The real time metrics
+    ) -> dict[str, list[tuple[str, float]]]:
+        """This method is working only with v3io tsdb, not in use for now.
+           Add real time metrics from the time series DB to a provided `ModelEndpoint` object. The real time metrics
            will be stored under `ModelEndpoint.status.metrics.real_time`
 
         :param model_endpoint_object: `ModelEndpoint` object that will be filled with the relevant
@@ -829,11 +776,7 @@ class ModelEndpoints:
             end=end,
         )
 
-        if endpoint_metrics:
-            model_endpoint_object.status.metrics[
-                mlrun.common.schemas.model_monitoring.EventKeyMetrics.REAL_TIME
-            ] = endpoint_metrics
-        return model_endpoint_object
+        return endpoint_metrics
 
     def _add_feature_analysis(
         self, model_endpoint_objects: list[mlrun.common.schemas.ModelEndpoint]
@@ -932,11 +875,10 @@ class ModelEndpoints:
                 model_endpoint_object.spec.model_uri, db=run_db
             )
         )
-        feature_stats: dict = model_obj.spec.feature_stats
+        feature_stats: dict = model_obj.spec.feature_stats or {}
         mlrun.common.model_monitoring.helpers.pad_features_hist(
             mlrun.common.model_monitoring.helpers.FeatureStats(feature_stats)
         )
-        # Mimic in-place modification
         feature_stats.update(
             {
                 mlrun.feature_store.api.norm_column_name(key): feature_stats.pop(key)

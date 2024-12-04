@@ -3509,7 +3509,7 @@ class HTTPRunDB(RunDBInterface):
         :return: The created model endpoint object.
         """
 
-        path = f"projects/{model_endpoint.metadata.project}/model-endpoints/{model_endpoint.metadata.name}"
+        path = f"projects/{model_endpoint.metadata.project}/model-endpoints"
         response = self.api_call(
             method=mlrun.common.types.HTTPMethod.POST,
             path=path,

@@ -30,6 +30,7 @@ import mlrun.common.model_monitoring
 import mlrun.common.schemas.model_monitoring
 from mlrun.utils import logger, now_date
 
+from ..common.schemas.model_monitoring import ModelEndpointSchema
 from .server import GraphServer
 from .utils import RouterToDict, _extract_input_data, _update_result_body
 from .v2_serving import _ModelLogPusher
@@ -1041,7 +1042,7 @@ def _init_endpoint_record(
         if hasattr(c, "endpoint_uid"):
             children_uids.append(c.endpoint_uid)
             children_names.append(c.name)
-    if not model_endpoint:
+    if not model_endpoint and voting_ensemble.context.server.track_models:
         logger.info(
             "Creating a new model endpoint record",
             name=voting_ensemble.name,
@@ -1075,14 +1076,14 @@ def _init_endpoint_record(
     elif model_endpoint:
         attributes = {}
         if function_uid != model_endpoint.spec.function_uid:
-            attributes["function_uid"] = function_uid
+            attributes[ModelEndpointSchema.FUNCTION_UID] = function_uid
         if children_uids != model_endpoint.spec.children_uids:
-            attributes["children_uids"] = children_uids
+            attributes[ModelEndpointSchema.CHILDREN_UIDS] = children_uids
         if (
             model_endpoint.status.monitoring_mode
             == mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
         ) != voting_ensemble.context.server.track_models:
-            attributes["monitoring_mode"] = (
+            attributes[ModelEndpointSchema.MONITORING_MODE] = (
                 mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
                 if voting_ensemble.context.server.track_models
                 else mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled
@@ -1103,6 +1104,11 @@ def _init_endpoint_record(
                 name=model_ep.metadata.name,
                 function_name=model_ep.spec.function_name,
             )
+    else:
+        logger.info(
+            "Did not create a new model endpoint record, monitoring is disabled"
+        )
+        return None
 
     # Update model endpoint children type
     for uid, name in zip(children_uids, children_names):
@@ -1112,10 +1118,9 @@ def _init_endpoint_record(
             function_name=graph_server.function_name,
             endpoint_id=uid,
             attributes={
-                "endpoint_type": mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
+                ModelEndpointSchema.ENDPOINT_TYPE: mlrun.common.schemas.model_monitoring.EndpointType.LEAF_EP
             },
         )
-
     return model_endpoint.metadata.uid
 
 

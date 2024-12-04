@@ -3476,8 +3476,8 @@ class MlrunProject(ModelObj):
         model_name: Optional[str] = None,
         function_name: Optional[str] = None,
         labels: Optional[list[str]] = None,
-        start: Optional[str] = None,
-        end: Optional[str] = None,
+        start: Optional[datetime.datetime] = None,
+        end: Optional[datetime.datetime] = None,
         top_level: bool = False,
         uids: Optional[list[str]] = None,
     ) -> mlrun.common.schemas.ModelEndpointList:

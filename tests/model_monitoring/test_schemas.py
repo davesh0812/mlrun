@@ -72,6 +72,7 @@ def test_fqn_parsing(
     ("flat_mep", "expectation"),
     [
         ({"project": "proj-1", "uid": "ok_30", "name": "test"}, does_not_raise()),
+        ({}, pytest.raises(pydantic.v1.ValidationError)),
         (
             {"project": "im-fine-10"},
             pytest.raises(

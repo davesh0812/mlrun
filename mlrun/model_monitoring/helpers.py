@@ -234,10 +234,10 @@ def update_model_endpoint_last_request(
     :param current_request: current request time
     :param db:              DB interface.
     """
-    is_model_server_endpoint = (
+    is_batch_endpoint = (
         model_endpoint.metadata.endpoint_type != mm_constants.EndpointType.BATCH_EP
     )
-    if is_model_server_endpoint:
+    if not is_batch_endpoint:
         logger.info(
             "Update model endpoint last request time (EP with serving)",
             project=project,
