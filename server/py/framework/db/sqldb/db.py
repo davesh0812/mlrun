@@ -2671,16 +2671,17 @@ class SQLDB(DBInterface):
         objs,
         project: str,
         name: str,
-        obj_name_attribute: str = "name",
+        obj_name_attribute: Union[str, list[str]] = "name",
     ):
         tags = []
+        obj_name_attribute = [obj_name_attribute] if isinstance(obj_name_attribute, str) else obj_name_attribute
         for obj in objs:
             query = self._query(
                 session,
                 obj.Tag,
                 name=name,
                 project=project,
-                obj_name=getattr(obj, obj_name_attribute),
+                obj_name='-'.join([getattr(obj, attr) if getattr(obj, attr) else "" for attr in obj_name_attribute]),
             )
 
             tag = query.one_or_none()
@@ -2688,7 +2689,7 @@ class SQLDB(DBInterface):
                 tag = obj.Tag(
                     project=project,
                     name=name,
-                    obj_name=getattr(obj, obj_name_attribute),
+                    obj_name='-'.join([getattr(obj, attr) if getattr(obj, attr) else "" for attr in obj_name_attribute]),
                 )
             tag.obj_id = obj.id
             tags.append(tag)
@@ -6782,7 +6783,7 @@ class SQLDB(DBInterface):
         update_labels(mep, model_endpoint.metadata.labels)
         mep.struct = model_endpoint.flat_dict()
         self._upsert(session, [mep])
-        self.tag_objects_v2(session, [mep], project, "latest")
+        self.tag_objects_v2(session, [mep], project, "latest", obj_name_attribute=["name", "function_name"])
         mep_record = self._get_model_endpoint(session, project, name, function_name)
         return self._transform_model_endpoint_model_to_schema(mep_record)
 

@@ -584,3 +584,28 @@ class TestModelEndpoint(TestDatabaseBase):
         assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
         assert model_endpoint_from_db.spec.model_name == ""
         assert model_endpoint_from_db.spec.function_name is None
+
+
+    def test_2_functions(self) -> None:
+        for i in range(2):
+            model_endpoint = mlrun.common.schemas.ModelEndpoint(
+                metadata={"name": "model-endpoint-1", "project": "project-1"},
+                spec={
+                    "function_name": f"f-{i}",
+                    "function_uid": None,
+                },
+                status={"monitoring_mode": "enabled", "last_request": datetime.now()},
+            )
+            self._db.store_model_endpoint(
+                self._db_session,
+                model_endpoint,
+                name=model_endpoint.metadata.name,
+                project=model_endpoint.metadata.project,
+                function_name=f"f-{i}",
+            )
+
+        endpoints = self._db.list_model_endpoints(self._db_session, project="project-1", latest_only=True).endpoints
+        assert len(endpoints) == 2
+
+        endpoints = self._db.list_model_endpoints(self._db_session, project="project-1", function_name="f-0").endpoints
+        assert len(endpoints) == 1
