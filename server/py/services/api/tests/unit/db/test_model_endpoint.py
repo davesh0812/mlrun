@@ -585,7 +585,6 @@ class TestModelEndpoint(TestDatabaseBase):
         assert model_endpoint_from_db.spec.model_name == ""
         assert model_endpoint_from_db.spec.function_name is None
 
-
     def test_2_functions(self) -> None:
         for i in range(2):
             model_endpoint = mlrun.common.schemas.ModelEndpoint(
@@ -604,8 +603,12 @@ class TestModelEndpoint(TestDatabaseBase):
                 function_name=f"f-{i}",
             )
 
-        endpoints = self._db.list_model_endpoints(self._db_session, project="project-1", latest_only=True).endpoints
+        endpoints = self._db.list_model_endpoints(
+            self._db_session, project="project-1", latest_only=True
+        ).endpoints
         assert len(endpoints) == 2
 
-        endpoints = self._db.list_model_endpoints(self._db_session, project="project-1", function_name="f-0").endpoints
+        endpoints = self._db.list_model_endpoints(
+            self._db_session, project="project-1", function_name="f-0"
+        ).endpoints
         assert len(endpoints) == 1
