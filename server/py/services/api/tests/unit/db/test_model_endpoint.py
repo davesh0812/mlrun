@@ -458,7 +458,7 @@ class TestModelEndpoint(TestDatabaseBase):
             name=model_endpoint.metadata.name,
             project=model_endpoint.metadata.project,
             uid=uids[0],
-            attributes={"feature_names": ["a", "b"]},
+            attributes={"feature_names": ["a", "b"], "function_uid": "111"},
             function_name="function-1",
         )
 
@@ -486,6 +486,7 @@ class TestModelEndpoint(TestDatabaseBase):
         assert model_endpoint_from_db.metadata.project == "project-1"
         assert model_endpoint_from_db.metadata.uid == uids[0]
         assert model_endpoint_from_db.spec.feature_names == ["a", "b"]
+        assert model_endpoint_from_db.spec.function_uid == "111"
 
     def test_delete_model_endpoints(self) -> None:
         model_uids = []

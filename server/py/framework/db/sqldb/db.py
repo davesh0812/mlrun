@@ -6836,12 +6836,13 @@ class SQLDB(DBInterface):
             struct = mep_record.struct
             for key, val in attributes.items():
                 update_in(struct, key, val)
-            mep_record.struct = struct
             for key, val in schema_attr.items():
                 setattr(mep_record, key, val)
                 update_in(struct, key, val)
             if labels and isinstance(labels, dict):
                 update_labels(mep_record, labels)
+            update_in(struct, "labels", labels)
+            mep_record.struct = struct
             mep_record.updated = updated
             self._upsert(session, [mep_record])
             return self._transform_model_endpoint_model_to_schema(mep_record)
