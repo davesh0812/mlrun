@@ -3666,16 +3666,18 @@ class HTTPRunDB(RunDBInterface):
         attributes["project"] = project
         attributes["uid"] = endpoint_id or ""
         model_endpoint = mlrun.common.schemas.ModelEndpoint.from_flat_dict(attributes)
-        params = {
-            "function_name": function_name,
-            "endpoint_id": endpoint_id,
-            "attributes_keys": attributes_keys,
-        }
-        path = f"projects/{project}/model-endpoints/{name}"
+        path = f"projects/{project}/model-endpoints"
+        logger.info(
+            "Patching model endpoint",
+            attributes_keys=attributes_keys,
+            model_endpoint=model_endpoint,
+        )
         response = self.api_call(
             method=mlrun.common.types.HTTPMethod.PATCH,
             path=path,
-            params=params,
+            params={
+                "attribute-key": attributes_keys,
+            },
             body=model_endpoint.json(),
         )
 

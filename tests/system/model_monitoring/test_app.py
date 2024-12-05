@@ -321,9 +321,9 @@ class _V3IORecordsChecker:
 @pytest.mark.enterprise
 @pytest.mark.model_monitoring
 class TestMonitoringAppFlow(TestMLRunSystem, _V3IORecordsChecker):
-    project_name = "test-app-flow"
+    project_name = "test-app-flow-v48"
     # Set image to "<repo>/mlrun:<tag>" for local testing
-    image: typing.Optional[str] = None
+    image: typing.Optional[str] = "quay.io/davesh0812/mlrun:1.8.0"
     error_count = 10
 
     @classmethod

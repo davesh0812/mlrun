@@ -645,6 +645,13 @@ def _init_endpoint_record(
                 else mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled
             )
         if attributes:
+            logger.info(
+                "Updating model endpoint attributes",
+                attributes=attributes,
+                project=model_ep.metadata.project,
+                name=model_ep.metadata.name,
+                function_name=model_ep.spec.function_name,
+            )
             db = mlrun.get_run_db()
             model_ep = db.patch_model_endpoint(
                 project=model_ep.metadata.project,
@@ -652,13 +659,6 @@ def _init_endpoint_record(
                 function_name=model_ep.spec.function_name,
                 endpoint_id=model_ep.metadata.uid,
                 attributes=attributes,
-            )
-            logger.info(
-                "Updating model endpoint attributes",
-                attributes=attributes,
-                project=model_ep.metadata.project,
-                name=model_ep.metadata.name,
-                function_name=model_ep.spec.function_name,
             )
     else:
         return None

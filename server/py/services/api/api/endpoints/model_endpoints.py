@@ -95,27 +95,21 @@ async def create_model_endpoint(
 
 
 @router.patch(
-    "/{name}",
+    "",
     response_model=schemas.ModelEndpoint,
 )
 async def patch_model_endpoint(
-    name: str,
     project: ProjectAnnotation,
     model_endpoint: schemas.ModelEndpoint,
-    attributes_keys: list[str],
-    function_name: Optional[str] = None,
-    endpoint_id: Optional[EndpointIDAnnotation] = None,
+    attributes_keys: list[str] = Query([], alias="attribute-key"),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
 ) -> schemas.ModelEndpoint:
     """
     Patch the model endpoint record in the DB.
-    :param name:            The model endpoint name.
     :param project:         The name of the project.
     :param model_endpoint:  The model endpoint object.
     :param attributes_keys: The keys of the attributes to patch.
-    :param function_name:   The name of the function.
-    :param endpoint_id:     The unique id of the model endpoint.
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database.
 
@@ -127,12 +121,26 @@ async def patch_model_endpoint(
         model_endpoint=model_endpoint,
         attributes_keys=attributes_keys,
     )
+    if project != model_endpoint.metadata.project:
+        raise MLRunInvalidArgumentError(
+            f"Project name in the URL '{project}' does not match the project name in the model endpoint metadata "
+            f"'{model_endpoint.metadata.project}'. User is not allowed to patch model endpoint in a different project."
+        )
+
+    if (
+        not model_endpoint.metadata.project
+        or not model_endpoint.metadata.name
+        or (not model_endpoint.metadata.uid and not model_endpoint.spec.function_name)
+    ):
+        raise MLRunInvalidArgumentError(
+            "In order to patch Model endpoint, it must have project, name and either uid or function"
+        )
 
     await (
         framework.utils.auth.verifier.AuthVerifier().query_project_resource_permissions(
             resource_type=schemas.AuthorizationResourceTypes.model_endpoint,
             project_name=project,
-            resource_name=name,
+            resource_name=model_endpoint.metadata.name,
             action=schemas.AuthorizationAction.update,
             auth_info=auth_info,
         )
@@ -141,10 +149,10 @@ async def patch_model_endpoint(
 
     return await run_in_threadpool(
         services.api.crud.ModelEndpoints().patch_model_endpoint,
-        name=name,
+        name=model_endpoint.metadata.name,
         project=project,
-        function_name=function_name,
-        endpoint_id=endpoint_id,
+        function_name=model_endpoint.spec.function_name,
+        endpoint_id=model_endpoint.metadata.uid,
         attributes=attributes,
         db_session=db_session,
     )

@@ -1090,19 +1090,19 @@ def _init_endpoint_record(
             )
         if attributes:
             db = mlrun.get_run_db()
-            model_ep = db.patch_model_endpoint(
+            logger.info(
+                "Updating model endpoint attributes",
+                attributes=attributes,
+                project=model_endpoint.metadata.project,
+                name=model_endpoint.metadata.name,
+                function_name=model_endpoint.spec.function_name,
+            )
+            model_endpoint = db.patch_model_endpoint(
                 project=model_endpoint.metadata.project,
                 name=model_endpoint.metadata.name,
                 function_name=model_endpoint.spec.function_name,
                 endpoint_id=model_endpoint.metadata.uid,
                 attributes=attributes,
-            )
-            logger.info(
-                "Updating model endpoint attributes",
-                attributes=attributes,
-                project=model_ep.metadata.project,
-                name=model_ep.metadata.name,
-                function_name=model_ep.spec.function_name,
             )
     else:
         logger.info(
@@ -1111,6 +1111,11 @@ def _init_endpoint_record(
         return None
 
     # Update model endpoint children type
+    logger.info(
+        "Updating children model endpoint type",
+        children_uids=children_uids,
+        children_names=children_names,
+    )
     for uid, name in zip(children_uids, children_names):
         mlrun.get_run_db().patch_model_endpoint(
             name=name,
