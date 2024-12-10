@@ -215,8 +215,8 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             if i < 1:
                 endpoint.spec.model_name = "filterme"
                 endpoint.spec.function_tag = "v45"
-
             if i < 2:
+                endpoint.metadata.name = "test-filter"
                 endpoint.spec.function_name = "filter_function"
 
             if i < 4:
@@ -239,6 +239,11 @@ class TestModelEndpointsOperations(TestMLRunSystem):
             function_name="filter_function", function_tag="latest"
         )
         assert len(filter_functions.endpoints) == 1
+
+        filter_functions_latest = self.project.list_model_endpoints(
+            name="test-filter", latest_only=True
+        )
+        assert len(filter_functions_latest.endpoints) == 2
 
         filter_labels = db.list_model_endpoints(
             self.project_name, labels=["filtermex=1"]
