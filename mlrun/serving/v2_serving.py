@@ -625,7 +625,7 @@ def _init_endpoint_record(
             ),
         )
         db = mlrun.get_run_db()
-        db.create_model_endpoint(model_endpoint=model_ep)
+        model_ep = db.create_model_endpoint(model_endpoint=model_ep)
 
     elif model_ep:
         attributes = {}
