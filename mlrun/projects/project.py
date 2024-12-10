@@ -3550,6 +3550,7 @@ class MlrunProject(ModelObj):
         name: Optional[str] = None,
         model_name: Optional[str] = None,
         function_name: Optional[str] = None,
+        function_tag: Optional[str] = None,
         labels: Optional[list[str]] = None,
         start: Optional[datetime.datetime] = None,
         end: Optional[datetime.datetime] = None,
@@ -3562,10 +3563,11 @@ class MlrunProject(ModelObj):
         1) name
         2) model_name
         3) function_name
-        4) labels
-        5) top level
-        6) uids
-        7) start and end time, corresponding to the `created` field.
+        4) function_tag
+        5) labels
+        6) top level
+        7) uids
+        8) start and end time, corresponding to the `created` field.
         By default, when no filters are applied, all available endpoints for the given project will be listed.
 
         In addition, this functions provides a facade for listing endpoint related metrics. This facade is time-based
@@ -3574,6 +3576,7 @@ class MlrunProject(ModelObj):
         :param name: The name of the model to filter by
         :param model_name: The name of the model to filter by
         :param function_name: The name of the function to filter by
+        :param function_tag: The tag of the function to filter by
         :param labels: Filter model endpoints by label key-value pairs or key existence. This can be provided as:
             - A dictionary in the format `{"label": "value"}` to match specific label key-value pairs,
             or `{"label": None}` to check for key existence.
@@ -3594,6 +3597,7 @@ class MlrunProject(ModelObj):
             name=name,
             model_name=model_name,
             function_name=function_name,
+            function_tag=function_tag,
             labels=labels,
             start=start,
             end=end,
