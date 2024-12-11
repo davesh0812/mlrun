@@ -917,6 +917,7 @@ with warnings.catch_warnings():
         function_uid = Column(String(255, collation=SQLTypesUtil.collation()))
         model_uid = Column(String(255, collation=SQLTypesUtil.collation()))
         model_name = Column(String(255, collation=SQLTypesUtil.collation()))
+        model_db_key = Column(String(255, collation=SQLTypesUtil.collation()))
         body = Column(SQLTypesUtil.blob())
 
         created = Column(
@@ -947,7 +948,7 @@ with warnings.catch_warnings():
             primaryjoin=and_(
                 foreign(model_uid) == ArtifactV2.uid,
                 foreign(project) == ArtifactV2.project,
-                foreign(model_name) == ArtifactV2.key,
+                foreign(model_db_key) == ArtifactV2.key,
             ),
         )
 

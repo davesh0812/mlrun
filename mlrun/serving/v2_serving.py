@@ -573,12 +573,14 @@ def _init_endpoint_record(
         model.get_model()
     if model.model_spec:
         model_name = model.model_spec.metadata.key
+        model_db_key = model.model_spec.spec.db_key
         model_uid = model.model_spec.metadata.uid
         model_tag = model.model_spec.tag
         model_labels = model.model_spec.labels  # todo : check if we still need this
     else:
         model_name = None
         model_uid = None
+        model_db_key = None
         model_tag = None
         model_labels = {}
     try:
@@ -610,6 +612,7 @@ def _init_endpoint_record(
             function_uid=function_uid,
             model_name=model_name,
             model_uid=model_uid,
+            model_db_key=model_db_key,
             model_class=model.__class__.__name__,
             model_tag=model_tag,
         )
@@ -626,6 +629,7 @@ def _init_endpoint_record(
                 function_tag=graph_server.function_tag or "latest",
                 model_name=model_name,
                 model_uid=model_uid,
+                model_db_key=model_db_key,
                 model_class=model.__class__.__name__,
             ),
             status=mlrun.common.schemas.ModelEndpointStatus(
