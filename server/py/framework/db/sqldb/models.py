@@ -925,17 +925,7 @@ with warnings.catch_warnings():
         model_name = Column(String(255, collation=SQLTypesUtil.collation()))
         model_tag = Column(String(64, collation=SQLTypesUtil.collation()))
         model_db_key = Column(String(255, collation=SQLTypesUtil.collation()))
-
         body = Column(SQLTypesUtil.blob())
-        # only under body
-        # first and last request
-        # children_uids
-        # model_class
-        # feature_names
-        # label_names
-        # monitoring_feature_set_uri
-        # children
-        # monitoring_mode
 
         created = Column(
             SQLTypesUtil.timestamp(),
