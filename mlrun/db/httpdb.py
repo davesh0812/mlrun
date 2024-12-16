@@ -3641,6 +3641,7 @@ class HTTPRunDB(RunDBInterface):
         function_name: Optional[str] = None,
         function_tag: Optional[str] = None,
         model_name: Optional[str] = None,
+        model_tag: Optional[str] = None,
         labels: Optional[Union[str, dict[str, Optional[str]], list[str]]] = None,
         start: Optional[datetime] = None,
         end: Optional[datetime] = None,
@@ -3675,6 +3676,7 @@ class HTTPRunDB(RunDBInterface):
             params={
                 "name": name,
                 "model_name": model_name,
+                "model_tag": model_tag,
                 "function_name": function_name,
                 "function_tag": function_tag,
                 "label": labels,

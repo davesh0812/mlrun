@@ -5059,6 +5059,7 @@ class SQLDB(DBInterface):
         function_name: str,
         function_tag: str,
         model_name: str,
+        model_tag: str,
         top_level: bool,
         labels: list[str],
         start: datetime,
@@ -5137,6 +5138,15 @@ class SQLDB(DBInterface):
                 cls=model_endpoints_table,
                 key_filter=ModelEndpointSchema.MODEL_NAME,
                 filtered_values=[model_name],
+                combined=False,
+            )
+
+        if model_tag:
+            query = self._filter_values(
+                query=query,
+                cls=model_endpoints_table,
+                key_filter=ModelEndpointSchema.MODEL_TAG,
+                filtered_values=[model_tag],
                 combined=False,
             )
 
@@ -5380,9 +5390,6 @@ class SQLDB(DBInterface):
         model_endpoint_record: ModelEndpoint, model_endpoint_full_dict: dict
     ) -> dict:
         if model_endpoint_record.model:
-            model_endpoint_full_dict[ModelEndpointSchema.MODEL_NAME] = (
-                model_endpoint_record.model.key
-            )
             model_artifact_uri = mlrun.datastore.get_store_uri(
                 kind=mlrun.utils.helpers.StorePrefix.Model,
                 uri=generate_artifact_uri(
@@ -6978,6 +6985,7 @@ class SQLDB(DBInterface):
         function_name: typing.Optional[str] = None,
         function_tag: typing.Optional[str] = None,
         model_name: typing.Optional[str] = None,
+        model_tag: typing.Optional[str] = None,
         top_level: typing.Optional[bool] = None,
         labels: typing.Optional[list[str]] = None,
         start: typing.Optional[datetime] = None,
@@ -6996,6 +7004,7 @@ class SQLDB(DBInterface):
             function_name=function_name,
             function_tag=function_tag,
             model_name=model_name,
+            model_tag=model_tag,
             top_level=top_level,
             start=start,
             end=end,
