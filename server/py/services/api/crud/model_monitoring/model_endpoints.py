@@ -77,6 +77,7 @@ class ModelEndpoints:
                 db_session,
                 name=model_endpoint.spec.function_name,
                 tag=model_endpoint.spec.function_tag,
+                project=model_endpoint.metadata.project,
             )
             model_endpoint.spec.function_uid = current_function.get("metadata", {}).get(
                 "uid"
