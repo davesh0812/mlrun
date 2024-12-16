@@ -1296,6 +1296,7 @@ class DBInterface(ABC):
         self,
         session,
         project: str,
+        uids: typing.Optional[list[str]] = None,
     ) -> None:
         """
         Delete model endpoints across projects and names.

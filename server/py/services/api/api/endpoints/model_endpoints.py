@@ -53,6 +53,7 @@ EndpointIDAnnotation = Annotated[
 async def create_model_endpoint(
     model_endpoint: schemas.ModelEndpoint,
     project: ProjectAnnotation,
+    creation_strategy: mm_constants.ModelEndpointCreationStrategy,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
 ) -> schemas.ModelEndpoint:
@@ -91,6 +92,7 @@ async def create_model_endpoint(
         services.api.crud.ModelEndpoints().create_model_endpoint,
         db_session=db_session,
         model_endpoint=model_endpoint,
+        creation_strategy=creation_strategy,
     )
 
 

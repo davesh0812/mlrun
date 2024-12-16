@@ -3582,6 +3582,7 @@ class HTTPRunDB(RunDBInterface):
     def create_model_endpoint(
         self,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy = mlrun.common.schemas.ModelEndpointCreationStrategy.INPLACE,
     ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Creates a DB record with the given model_endpoint record.
@@ -3596,6 +3597,9 @@ class HTTPRunDB(RunDBInterface):
             method=mlrun.common.types.HTTPMethod.POST,
             path=path,
             body=model_endpoint.json(),
+            params={
+                "creation_strategy": creation_strategy,
+            },
         )
         return mlrun.common.schemas.ModelEndpoint(**response.json())
 

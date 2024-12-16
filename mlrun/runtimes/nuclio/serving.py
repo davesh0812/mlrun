@@ -22,7 +22,7 @@ import nuclio
 from nuclio import KafkaTrigger
 
 import mlrun
-import mlrun.common.schemas
+import mlrun.common.schemas as schemas
 from mlrun.datastore import get_kafka_brokers_from_dict, parse_kafka_url
 from mlrun.model import ObjectList
 from mlrun.runtimes.function_reference import FunctionReference
@@ -362,6 +362,9 @@ class ServingRuntime(RemoteRuntime):
         handler: Optional[str] = None,
         router_step: Optional[str] = None,
         child_function: Optional[str] = None,
+        creation_strategy: Optional[
+            schemas.ModelEndpointCreationStrategy
+        ] = schemas.ModelEndpointCreationStrategy.INPLACE,
         **class_args,
     ):
         """add ml model and/or route to the function.
@@ -432,12 +435,22 @@ class ServingRuntime(RemoteRuntime):
                 model_path = str(model_path)
 
             if model_url:
-                state = new_remote_endpoint(model_url, **class_args)
+                state = new_remote_endpoint(
+                    model_url,
+                    creation_strategy=creation_strategy,
+                    endpoint_type=schemas.EndpointType.LEAF_EP,
+                    **class_args,
+                )
             else:
                 class_args = deepcopy(class_args)
                 class_args["model_path"] = model_path
                 state = TaskStep(
-                    class_name, class_args, handler=handler, function=child_function
+                    class_name,
+                    class_args,
+                    handler=handler,
+                    function=child_function,
+                    model_endpoint_creation_strategy=creation_strategy,
+                    endpoint_type=schemas.EndpointType.LEAF_EP,
                 )
 
         return graph.add_route(key, state)
@@ -581,7 +594,7 @@ class ServingRuntime(RemoteRuntime):
         project="",
         tag="",
         verbose=False,
-        auth_info: mlrun.common.schemas.AuthInfo = None,
+        auth_info: schemas.AuthInfo = None,
         builder_env: Optional[dict] = None,
         force_build: bool = False,
     ):

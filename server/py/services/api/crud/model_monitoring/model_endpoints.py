@@ -52,11 +52,11 @@ DEFAULT_FUNCTION_TAG = "latest"
 class ModelEndpoints:
     """Provide different methods for handling model endpoints such as listing, writing and deleting"""
 
-    @classmethod
     def create_model_endpoint(
-        cls,
+        self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
     ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Creates model endpoint record in DB. The DB store target is defined either by a provided connection string
@@ -71,65 +71,42 @@ class ModelEndpoints:
             logger.info("Function tag not provided, setting to 'latest'")
             model_endpoint.spec.function_tag = DEFAULT_FUNCTION_TAG
 
-        logger.info(
-            "Creating model endpoint",
-            endpoint_id=model_endpoint.metadata.name,
-            project=model_endpoint.metadata.project,
-            function_name=model_endpoint.spec.function_name,
-            function_tag=model_endpoint.spec.function_tag,
+        # get function_uid from db
+        current_function = framework.utils.singletons.db.get_db().get_function(
+            db_session,
+            name=model_endpoint.spec.function_name,
+            tag=model_endpoint.spec.function_tag,
         )
-
-        # 1. store in db
-        model_endpoint = framework.utils.singletons.db.get_db().store_model_endpoint(
-            session=db_session,
-            model_endpoint=model_endpoint,
+        model_endpoint.spec.function_uid = current_function.get("metadata", {}).get(
+            "uid"
         )
-
-        # 2. according to the model uri get the model object
-        # 3. get the feature stats from the model object
-        model_obj = None
-        if model_endpoint.spec.model_uri:
-            model_endpoint, model_obj = cls._add_feature_stats(
-                session=db_session, model_endpoint_object=model_endpoint
-            )
-        # # Verify and enrich the model endpoint obj with the updated model uri
-
-        # 4. create a monitoring feature set & update the model endpoint object with
-        # the feature_set_uri, features and labels
-        # Get labels from model object if not found in model endpoint object
-        features = []
-        attributes = {}
-        if model_obj:
-            if not model_endpoint.spec.label_names and model_obj.spec.outputs:
-                model_label_names = [
-                    mlrun.feature_store.api.norm_column_name(f.name)
-                    for f in model_obj.spec.outputs
-                ]
-                model_endpoint.spec.label_names = model_label_names
-                attributes["label_names"] = model_label_names
-
-            features = cls._get_features(
-                model=model_obj,
-                run_db=framework.api.utils.get_run_db_instance(db_session),
-                project=model_endpoint.metadata.project,
-            )
-            model_endpoint.spec.feature_names = [feature.name for feature in features]
-            attributes["feature_names"] = model_endpoint.spec.feature_names
 
         if (
-            model_endpoint.status.monitoring_mode
-            == mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
+            creation_strategy
+            == mlrun.common.schemas.ModelEndpointCreationStrategy.INPLACE
         ):
-            monitoring_feature_set = cls.create_monitoring_feature_set(
-                features=features,
-                model_endpoint=model_endpoint,
+            model_endpoint, attributes = self._inplace_model_endpoint(
                 db_session=db_session,
+                model_endpoint=model_endpoint,
             )
-            # Link model endpoint object to feature set URI
-            model_endpoint.spec.monitoring_feature_set_uri = monitoring_feature_set.uri
-            attributes["monitoring_feature_set_uri"] = monitoring_feature_set.uri
-            # Create model monitoring json files
-            cls._create_model_monitoring_json_files(model_endpoint=model_endpoint)
+        elif (
+            creation_strategy
+            == mlrun.common.schemas.ModelEndpointCreationStrategy.OVERWRITE
+        ):
+            model_endpoint, attributes = self._overwrite_model_endpoint(
+                db_session=db_session,
+                model_endpoint=model_endpoint,
+            )
+        elif (
+            creation_strategy
+            == mlrun.common.schemas.ModelEndpointCreationStrategy.ARCHIVE
+        ):
+            model_endpoint, attributes = self._archive_model_endpoint(
+                db_session=db_session,
+                model_endpoint=model_endpoint,
+            )
+        else:
+            raise mlrun.errors.MLRunInvalidArgumentError("Invalid creation strategy")
 
         # 5. write the model endpoint to the db again
         framework.utils.singletons.db.get_db().update_model_endpoint(
@@ -145,6 +122,224 @@ class ModelEndpoints:
         logger.info("Model endpoint created", endpoint_id=model_endpoint.metadata.uid)
 
         return model_endpoint
+
+    def _inplace_model_endpoint(
+        self,
+        db_session: sqlalchemy.orm.Session,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, dict]:
+        try:
+            exist_model_endpoint = (
+                framework.utils.singletons.db.get_db().get_model_endpoint(
+                    session=db_session,
+                    project=model_endpoint.metadata.project,
+                    name=model_endpoint.metadata.name,
+                    function_name=model_endpoint.spec.function_name,
+                    function_tag=model_endpoint.spec.function_tag,
+                )
+            )
+        except mlrun.errors.MLRunNotFoundError:
+            exist_model_endpoint = None
+
+        if not exist_model_endpoint:
+            return self._archive_model_endpoint(
+                db_session=db_session, model_endpoint=model_endpoint
+            )
+
+        model_endpoint.metadata.uid = exist_model_endpoint.metadata.uid
+        attributes = {}
+        for attr in mlrun.common.schemas.ModelEndpoint.mutable_fields():
+            if attr in [
+                "first_request",
+                "last_request",
+                "feature_names",
+                "label_names",
+            ]:
+                continue
+            if getattr(model_endpoint, attr) != getattr(exist_model_endpoint, attr):
+                attributes[attr] = getattr(model_endpoint, attr)
+        model_endpoint = framework.utils.singletons.db.get_db().update_model_endpoint(
+            session=db_session,
+            project=model_endpoint.metadata.project,
+            name=model_endpoint.metadata.name,
+            attributes=attributes,
+            uid=model_endpoint.metadata.uid,
+        )
+
+        model_endpoint, features = self._enrich_features_from_model_obj(
+            db_session=db_session, model_endpoint=model_endpoint
+        )
+
+        attributes = {}
+        if (
+            (
+                model_endpoint.status.monitoring_mode
+                != exist_model_endpoint.status.monitoring_mode
+            )
+            and model_endpoint.status.monitoring_mode
+            == mlrun.common.schemas.ModelMonitoringMode.enabled
+            and not model_endpoint.spec.monitoring_feature_set_uri
+        ):
+            model_endpoint, monitoring_feature_set_uri = (
+                self._enable_monitoring_on_model_endpoint(
+                    db_session=db_session,
+                    model_endpoint=model_endpoint,
+                    features=features,
+                )
+            )
+            attributes[
+                mlrun.common.schemas.ModelEndpointSchema.MONITORING_FEATURE_SET_URI
+            ] = monitoring_feature_set_uri
+            attributes[mlrun.common.schemas.ModelEndpointSchema.FEATURE_NAMES] = (
+                model_endpoint.spec.feature_names
+            )
+            attributes[mlrun.common.schemas.ModelEndpointSchema.LABEL_NAMES] = (
+                model_endpoint.spec.feature_names
+            )
+
+        return model_endpoint, attributes
+
+    def _overwrite_model_endpoint(
+        self,
+        db_session: sqlalchemy.orm.Session,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, dict]:
+        old_uids = [
+            model_endpoint.metadata.uid
+            for model_endpoint in framework.utils.singletons.db.get_db()
+            .list_model_endpoints(
+                project=model_endpoint.metadata.project,
+                name=model_endpoint.metadata.name,
+                function_name=model_endpoint.spec.function_name,
+                function_tag=model_endpoint.spec.function_tag,
+                latest_only=False,
+                session=db_session,
+            )
+            .endpoints
+        ]
+
+        model_endpoint, attributes = self._archive_model_endpoint(
+            db_session, model_endpoint
+        )
+
+        # delete old versions
+        framework.utils.singletons.db.get_db().delete_model_endpoints(
+            session=db_session, project=model_endpoint.metadata.project, uids=old_uids
+        )
+        self._delete_model_endpoint_monitoring_infra(
+            uids=old_uids, project=model_endpoint.metadata.project
+        )
+
+        return model_endpoint, attributes
+
+    def _archive_model_endpoint(
+        self,
+        db_session: sqlalchemy.orm.Session,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, dict]:
+        model_endpoint = self._create_new_model_endpoint(
+            db_session=db_session, model_endpoint=model_endpoint
+        )
+        model_endpoint, features = self._enrich_features_from_model_obj(
+            db_session=db_session, model_endpoint=model_endpoint
+        )
+        attributes = {}
+        attributes[mlrun.common.schemas.ModelEndpointSchema.FEATURE_NAMES] = (
+            model_endpoint.spec.feature_names
+        )
+        attributes[mlrun.common.schemas.ModelEndpointSchema.LABEL_NAMES] = (
+            model_endpoint.spec.feature_names
+        )
+        if (
+            model_endpoint.status.monitoring_mode
+            == mlrun.common.schemas.ModelMonitoringMode.enabled
+        ):
+            model_endpoint, monitoring_feature_set_uri = (
+                self._enable_monitoring_on_model_endpoint(
+                    db_session=db_session,
+                    model_endpoint=model_endpoint,
+                    features=features,
+                )
+            )
+            attributes[
+                mlrun.common.schemas.ModelEndpointSchema.MONITORING_FEATURE_SET_URI
+            ] = monitoring_feature_set_uri
+        return model_endpoint, attributes
+
+    @staticmethod
+    def _create_new_model_endpoint(
+        db_session: sqlalchemy.orm.Session,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+    ) -> mlrun.common.schemas.ModelEndpoint:
+        if (
+            model_endpoint.status.monitoring_mode
+            == mlrun.common.schemas.ModelMonitoringMode.enabled
+        ):
+            logger.info(
+                "Creating model endpoint",
+                endpoint_id=model_endpoint.metadata.name,
+                project=model_endpoint.metadata.project,
+                function_name=model_endpoint.spec.function_name,
+                function_tag=model_endpoint.spec.function_tag,
+            )
+            return framework.utils.singletons.db.get_db().store_model_endpoint(
+                session=db_session,
+                model_endpoint=model_endpoint,
+            )
+        else:
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                "Model Endpoint does not exist and monitoring mode is disabled, "
+                "if you are trying to create a new model endpoint, please enable monitoring mode"
+            )
+
+    def _enrich_features_from_model_obj(
+        self,
+        db_session: sqlalchemy.orm.Session,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, list[mlrun.feature_store.Feature]]:
+        model_obj = None
+        features = []
+        if model_endpoint.spec.model_uri:
+            model_endpoint, model_obj = self._add_feature_stats(
+                session=db_session, model_endpoint_object=model_endpoint
+            )
+        if model_obj:
+            if not model_endpoint.spec.label_names and model_obj.spec.outputs:
+                model_label_names = [
+                    mlrun.feature_store.api.norm_column_name(f.name)
+                    for f in model_obj.spec.outputs
+                ]
+                model_endpoint.spec.label_names = model_label_names
+
+            if not model_endpoint.spec.feature_names:
+                features = self._get_features(
+                    model=model_obj,
+                    run_db=framework.api.utils.get_run_db_instance(db_session),
+                    project=model_endpoint.metadata.project,
+                )
+                model_endpoint.spec.feature_names = [
+                    feature.name for feature in features
+                ]
+
+        return model_endpoint, features
+
+    def _enable_monitoring_on_model_endpoint(
+        self,
+        db_session: sqlalchemy.orm.Session,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        features: list[mlrun.feature_store.Feature],
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, str]:
+        monitoring_feature_set = self.create_monitoring_feature_set(
+            features=features,
+            model_endpoint=model_endpoint,
+            db_session=db_session,
+        )
+        # Link model endpoint object to feature set URI
+        model_endpoint.spec.monitoring_feature_set_uri = monitoring_feature_set.uri
+        # Create model monitoring json files
+        self._create_model_monitoring_json_files(model_endpoint=model_endpoint)
+
+        return model_endpoint, monitoring_feature_set.uri
 
     @classmethod
     def _create_model_monitoring_json_files(
@@ -333,8 +528,8 @@ class ModelEndpoints:
 
         return feature_set
 
-    @staticmethod
     def delete_model_endpoint(
+        self,
         name: str,
         project: str,
         db_session: sqlalchemy.orm.Session,
@@ -382,18 +577,50 @@ class ModelEndpoints:
             function_tag=function_tag,
             uid=endpoint_id,
         )
-        # Delete the model endpoint files
-        for uid in uids:
-            ModelMonitoringCurrentStatsFile(project=project, endpoint_id=uid).delete()
-            ModelMonitoringDriftMeasuresFile(project=project, endpoint_id=uid).delete()
-            ModelMonitoringSchedulesFile(project=project, endpoint_id=uid).delete()
-
+        self._delete_model_endpoint_monitoring_infra(uids=uids, project=project)
         logger.info(
             "Model endpoint were delete",
             project=project,
             name=name,
             function_name=function_name,
             function_tag=function_tag,
+            amount=len(uids),
+        )
+
+    def _delete_model_endpoint_monitoring_infra(self, uids: list[str], project: str):
+        """
+        Delete the monitoring infrastructure of a given model endpoint based on endpoint id.
+
+        :param uids:          The unique id of the model endpoint.
+        :param project:       The name of the project.
+        """
+
+        # delete jsons
+        for uid in uids:
+            ModelMonitoringCurrentStatsFile(project=project, endpoint_id=uid).delete()
+            ModelMonitoringDriftMeasuresFile(project=project, endpoint_id=uid).delete()
+            ModelMonitoringSchedulesFile(project=project, endpoint_id=uid).delete()
+
+        # delete tsdb records - NOT IMPLEMENTED
+        try:
+            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+                project=project,
+                secret_provider=services.api.crud.secrets.get_project_secret_provider(
+                    project=project
+                ),
+            )
+            tsdb_connector.delete_tsdb_resources()
+            logger.info("TSDB resources were not deleted")
+            # todo : delete tsdb records/tables for the model endpoint
+        except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
+            logger.info(
+                "Failed to delete TSDB resources, you may need to delete them manually",
+                error=mlrun.errors.err_to_str(e),
+            )
+
+        logger.info(
+            "Model endpoint monitoring infrastructure were delete",
+            project=project,
             amount=len(uids),
         )
 

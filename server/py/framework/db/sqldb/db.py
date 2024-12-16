@@ -7025,6 +7025,7 @@ class SQLDB(DBInterface):
         self,
         session: Session,
         project: str,
+        uids: typing.Optional[list[str]] = None,
     ) -> None:
         logger.debug("Removing model endpoints from db", project=project)
 
@@ -7033,6 +7034,8 @@ class SQLDB(DBInterface):
             main_table=ModelEndpoint,
             related_tables=[ModelEndpoint.Tag, ModelEndpoint.Label],
             project=project,
+            main_table_identifier=ModelEndpoint.uid if uids else None,
+            main_table_identifier_values=uids,
         )
 
     # ---- Utils ----

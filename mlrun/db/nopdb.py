@@ -575,6 +575,7 @@ class NopDB(RunDBInterface):
     def create_model_endpoint(
         self,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
     ) -> mlrun.common.schemas.ModelEndpoint:
         pass
 
