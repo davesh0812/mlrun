@@ -273,7 +273,9 @@ class TestModelEndpointsOperations(TestMLRunSystem):
         endpoints_out = self.project.list_model_endpoints().endpoints
         if creation_strategy == mm_constants.ModelEndpointCreationStrategy.ARCHIVE:
             assert len(endpoints_out) == 2
-            endpoints_out = self.project.list_model_endpoints(latest_only=True).endpoints
+            endpoints_out = self.project.list_model_endpoints(
+                latest_only=True
+            ).endpoints
 
         assert len(endpoints_out) == 1
         assert endpoints_out[0].spec.model_name == "model-2"

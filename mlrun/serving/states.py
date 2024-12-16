@@ -82,7 +82,8 @@ _task_step_fields = [
     "responder",
     "input_path",
     "result_path",
-    "model_endpoint_creation_strategy" "endpoint_type",
+    "model_endpoint_creation_strategy",
+    "endpoint_type",
 ]
 
 

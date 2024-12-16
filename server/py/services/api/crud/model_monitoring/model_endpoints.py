@@ -229,7 +229,9 @@ class ModelEndpoints:
         if old_uids:
             # delete old versions
             framework.utils.singletons.db.get_db().delete_model_endpoints(
-                session=db_session, project=model_endpoint.metadata.project, uids=old_uids
+                session=db_session,
+                project=model_endpoint.metadata.project,
+                uids=old_uids,
             )
             self._delete_model_endpoint_monitoring_infra(
                 uids=old_uids, project=model_endpoint.metadata.project

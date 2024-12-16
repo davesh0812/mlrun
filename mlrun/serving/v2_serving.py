@@ -599,6 +599,7 @@ def _init_endpoint_record(
         model_db_key=model_db_key,
         model_uid=model_uid,
         model_class=model.__class__.__name__,
+        creation_strategy=creation_strategy,
     )
     try:
         model_ep = mlrun.common.schemas.ModelEndpoint(
