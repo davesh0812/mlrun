@@ -72,14 +72,18 @@ class ModelEndpoints:
             model_endpoint.spec.function_tag = DEFAULT_FUNCTION_TAG
 
         # get function_uid from db
-        current_function = framework.utils.singletons.db.get_db().get_function(
-            db_session,
-            name=model_endpoint.spec.function_name,
-            tag=model_endpoint.spec.function_tag,
-        )
-        model_endpoint.spec.function_uid = current_function.get("metadata", {}).get(
-            "uid"
-        )
+        try:
+            current_function = framework.utils.singletons.db.get_db().get_function(
+                db_session,
+                name=model_endpoint.spec.function_name,
+                tag=model_endpoint.spec.function_tag,
+            )
+            model_endpoint.spec.function_uid = current_function.get("metadata", {}).get(
+                "uid"
+            )
+        except mlrun.errors.MLRunNotFoundError:
+            logger.info("The model endpoint is created on a non-existing function")
+            pass
 
         if (
             creation_strategy
@@ -107,15 +111,15 @@ class ModelEndpoints:
             )
         else:
             raise mlrun.errors.MLRunInvalidArgumentError("Invalid creation strategy")
-
-        # 5. write the model endpoint to the db again
-        framework.utils.singletons.db.get_db().update_model_endpoint(
-            session=db_session,
-            project=model_endpoint.metadata.project,
-            name=model_endpoint.metadata.name,
-            attributes=attributes,
-            uid=model_endpoint.metadata.uid,
-        )
+        if attributes:
+            # 5. write the model endpoint to the db again
+            framework.utils.singletons.db.get_db().update_model_endpoint(
+                session=db_session,
+                project=model_endpoint.metadata.project,
+                name=model_endpoint.metadata.name,
+                attributes=attributes,
+                uid=model_endpoint.metadata.uid,
+            )
 
         # If none of the above was supplied, feature names will be assigned on first contact with the model monitoring
         # system
@@ -156,14 +160,14 @@ class ModelEndpoints:
                 "label_names",
             ]:
                 continue
-            if getattr(model_endpoint, attr) != getattr(exist_model_endpoint, attr):
-                attributes[attr] = getattr(model_endpoint, attr)
+            if model_endpoint.get(attr) != exist_model_endpoint.get(attr):
+                attributes[attr] = model_endpoint.get(attr)
         model_endpoint = framework.utils.singletons.db.get_db().update_model_endpoint(
             session=db_session,
-            project=model_endpoint.metadata.project,
-            name=model_endpoint.metadata.name,
+            project=exist_model_endpoint.metadata.project,
+            name=exist_model_endpoint.metadata.name,
             attributes=attributes,
-            uid=model_endpoint.metadata.uid,
+            uid=exist_model_endpoint.metadata.uid,
         )
 
         model_endpoint, features = self._enrich_features_from_model_obj(
@@ -221,14 +225,14 @@ class ModelEndpoints:
         model_endpoint, attributes = self._archive_model_endpoint(
             db_session, model_endpoint
         )
-
-        # delete old versions
-        framework.utils.singletons.db.get_db().delete_model_endpoints(
-            session=db_session, project=model_endpoint.metadata.project, uids=old_uids
-        )
-        self._delete_model_endpoint_monitoring_infra(
-            uids=old_uids, project=model_endpoint.metadata.project
-        )
+        if old_uids:
+            # delete old versions
+            framework.utils.singletons.db.get_db().delete_model_endpoints(
+                session=db_session, project=model_endpoint.metadata.project, uids=old_uids
+            )
+            self._delete_model_endpoint_monitoring_infra(
+                uids=old_uids, project=model_endpoint.metadata.project
+            )
 
         return model_endpoint, attributes
 
