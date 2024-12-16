@@ -1597,6 +1597,10 @@ def params_to_step(
     input_path: Optional[str] = None,
     result_path: Optional[str] = None,
     class_args=None,
+    model_endpoint_creation_strategy: Optional[
+        schemas.ModelEndpointCreationStrategy
+    ] = None,
+    endpoint_type: Optional[schemas.EndpointType] = None,
 ):
     """return step object from provided params or classes/objects"""
 
@@ -1612,6 +1616,9 @@ def params_to_step(
         step.full_event = full_event or step.full_event
         step.input_path = input_path or step.input_path
         step.result_path = result_path or step.result_path
+        if kind == "task":
+            step.model_endpoint_creation_strategy = model_endpoint_creation_strategy
+            step.endpoint_type = endpoint_type
 
     elif class_name and class_name in queue_class_names:
         if "path" not in class_args:
@@ -1652,6 +1659,8 @@ def params_to_step(
             full_event=full_event,
             input_path=input_path,
             result_path=result_path,
+            model_endpoint_creation_strategy=model_endpoint_creation_strategy,
+            endpoint_type=endpoint_type,
         )
     else:
         raise MLRunInvalidArgumentError("class_name or handler must be provided")
