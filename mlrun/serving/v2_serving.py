@@ -629,7 +629,7 @@ def _init_endpoint_record(
         model_ep = db.create_model_endpoint(
             model_endpoint=model_ep, creation_strategy=creation_strategy
         )
-    except mlrun.errors.MLRunInvalidArgumentError as e:
+    except mlrun.errors.MLRunBadRequestError as e:
         logger.info("Failed to create model endpoint record", error=e)
         return None
 

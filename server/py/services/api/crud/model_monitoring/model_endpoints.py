@@ -278,26 +278,17 @@ class ModelEndpoints:
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
     ) -> mlrun.common.schemas.ModelEndpoint:
-        if (
-            model_endpoint.status.monitoring_mode
-            == mlrun.common.schemas.ModelMonitoringMode.enabled
-        ):
-            logger.info(
-                "Creating model endpoint",
-                endpoint_id=model_endpoint.metadata.name,
-                project=model_endpoint.metadata.project,
-                function_name=model_endpoint.spec.function_name,
-                function_tag=model_endpoint.spec.function_tag,
-            )
-            return framework.utils.singletons.db.get_db().store_model_endpoint(
-                session=db_session,
-                model_endpoint=model_endpoint,
-            )
-        else:
-            raise mlrun.errors.MLRunInvalidArgumentError(
-                "Model Endpoint does not exist and monitoring mode is disabled, "
-                "if you are trying to create a new model endpoint, please enable monitoring mode"
-            )
+        logger.info(
+            "Creating model endpoint",
+            endpoint_id=model_endpoint.metadata.name,
+            project=model_endpoint.metadata.project,
+            function_name=model_endpoint.spec.function_name,
+            function_tag=model_endpoint.spec.function_tag,
+        )
+        return framework.utils.singletons.db.get_db().store_model_endpoint(
+            session=db_session,
+            model_endpoint=model_endpoint,
+        )
 
     def _enrich_features_from_model_obj(
         self,
