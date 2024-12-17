@@ -560,9 +560,6 @@ def _deploy_nuclio_runtime(
             )
 
         if serving_to_monitor:
-            # todo : delete this after solving ML-8771 and implement ML-7930
-            fn.spec.min_replicas = 1
-            fn.spec.max_replicas = 1
             if not client_version:
                 framework.api.utils.log_and_raise(
                     HTTPStatus.BAD_REQUEST.value,
@@ -581,6 +578,10 @@ def _deploy_nuclio_runtime(
                     f"('mlrun/') and set-tracking is enabled, "
                     f"client version must be >= {MINIMUM_CLIENT_VERSION_FOR_MM}",
                 )
+    if fn.kind == mlrun.runtimes.RuntimeKinds.serving:
+        # todo : delete this after solving ML-8771 and implement ML-7930
+        fn.spec.min_replicas = 1
+        fn.spec.max_replicas = 1
 
     services.api.crud.runtimes.nuclio.function.deploy_nuclio_function(
         fn,

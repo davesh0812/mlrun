@@ -1044,13 +1044,17 @@ class ModelEndpoints:
         :return: A list of `ModelEndpoint` objects.
         """
         for mep in model_endpoint_objects:
-            mep.status.current_stats, mep.status.current_stats_timestamp = (
-                ModelMonitoringCurrentStatsFile.from_model_endpoint(mep).read()
-            )
+            if (
+                mep.status.monitoring_mode
+                == mlrun.common.schemas.ModelMonitoringMode.enabled
+            ):
+                mep.status.current_stats, mep.status.current_stats_timestamp = (
+                    ModelMonitoringCurrentStatsFile.from_model_endpoint(mep).read()
+                )
 
-            mep.status.drift_measures, mep.status.drift_measures_timestamp = (
-                ModelMonitoringDriftMeasuresFile.from_model_endpoint(mep).read()
-            )
+                mep.status.drift_measures, mep.status.drift_measures_timestamp = (
+                    ModelMonitoringDriftMeasuresFile.from_model_endpoint(mep).read()
+                )
         return model_endpoint_objects
 
     def _add_basic_metrics(
