@@ -280,6 +280,16 @@ class TestModelEndpointsOperations(TestMLRunSystem):
         assert len(endpoints_out) == 1
         assert endpoints_out[0].spec.model_name == "model-2"
 
+        mep = mlrun.get_run_db().get_model_endpoint(
+            project=endpoints_out[0].metadata.project,
+            name=endpoints_out[0].metadata.name,
+            endpoint_id=endpoints_out[0].metadata.uid,
+            feature_analysis=True,
+        )
+
+        assert mep.status.drift_measures_timestamp is not None
+        assert mep.status.current_stats_timestamp is not None
+
     def _mock_random_endpoint(
         self,
         name: str,

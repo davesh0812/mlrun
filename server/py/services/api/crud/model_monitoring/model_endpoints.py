@@ -610,15 +610,14 @@ class ModelEndpoints:
 
         # delete tsdb records - NOT IMPLEMENTED
         try:
-            tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
-                project=project,
-                secret_provider=services.api.crud.secrets.get_project_secret_provider(
-                    project=project
-                ),
-            )
-            tsdb_connector.delete_tsdb_resources()
-            logger.info("TSDB resources were not deleted")
             # todo : delete tsdb records/tables for the model endpoint
+            # tsdb_connector = mlrun.model_monitoring.get_tsdb_connector(
+            #     project=project,
+            #     secret_provider=services.api.crud.secrets.get_project_secret_provider(
+            #         project=project
+            #     ),
+            # )
+            logger.info("TSDB resources were not deleted")
         except mlrun.errors.MLRunInvalidMMStoreTypeError as e:
             logger.info(
                 "Failed to delete TSDB resources, you may need to delete them manually",

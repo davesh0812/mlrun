@@ -69,6 +69,7 @@ async def create_model_endpoint(
     logger.info(
         "Creating Model Endpoint record",
         model_endpoint_metadata=model_endpoint.metadata,
+        creation_strategy=creation_strategy,
     )
     if project != model_endpoint.metadata.project:
         raise MLRunInvalidArgumentError(
