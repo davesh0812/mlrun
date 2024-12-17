@@ -1008,7 +1008,7 @@ class SQLRunDB(RunDBInterface):
     def create_model_endpoint(
         self,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
-        creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy = mlrun.common.schemas.ModelEndpointCreationStrategy.INPLACE,
+        creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy = "inplace",
     ) -> mlrun.common.schemas.ModelEndpoint:
         raise NotImplementedError()
 
