@@ -3588,6 +3588,11 @@ class HTTPRunDB(RunDBInterface):
         Creates a DB record with the given model_endpoint record.
 
         :param model_endpoint: An object representing the model endpoint.
+        :param creation_strategy: model endpoint creation strategy :
+                            * overwrite - Create a new model endpoint and delete the last old one if it exists.
+                            * inplace - Use the existing model endpoint if it already exists (default).
+                            * archive - Preserve the old model endpoint and create a new one,
+                            tagging it as the latest.
 
         :return: The created model endpoint object.
         """

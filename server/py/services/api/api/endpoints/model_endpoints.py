@@ -61,6 +61,11 @@ async def create_model_endpoint(
     Create a new model endpoint record in the DB.
     :param model_endpoint:  The model endpoint object.
     :param project:         The name of the project.
+    :param creation_strategy: model endpoint creation strategy :
+                            * overwrite - Create a new model endpoint and delete the last old one if it exists.
+                            * inplace - Use the existing model endpoint if it already exists.
+                            * archive - Preserve the old model endpoint and create a new one,
+                            tagging it as the latest.
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database.
 

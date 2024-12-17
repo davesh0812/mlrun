@@ -744,7 +744,7 @@ class RouterStep(TaskStep):
         class_name=None,
         handler=None,
         function=None,
-        creatiob_strategy: schemas.ModelEndpointCreationStrategy = schemas.ModelEndpointCreationStrategy.INPLACE,
+        creation_strategy: schemas.ModelEndpointCreationStrategy = schemas.ModelEndpointCreationStrategy.INPLACE,
         **class_args,
     ):
         """add child route step or class to the router
@@ -755,6 +755,11 @@ class RouterStep(TaskStep):
         :param class_args: class init arguments
         :param handler:    class handler to invoke on run/event
         :param function:   function this step should run in
+        :param creation_strategy: model endpoint creation strategy :
+                            * overwrite - Create a new model endpoint and delete the last old one if it exists.
+                            * inplace - Use the existing model endpoint if it already exists (default).
+                            * archive - Preserve the old model endpoint and create a new one,
+                            tagging it as the latest.
         """
 
         if not route and not class_name and not handler:
@@ -764,7 +769,7 @@ class RouterStep(TaskStep):
                 class_name,
                 class_args,
                 handler=handler,
-                model_endpoint_creation_strategy=creatiob_strategy,
+                model_endpoint_creation_strategy=creation_strategy,
                 endpoint_type=schemas.EndpointType.NODE_EP,
             )
         route.function = function or route.function

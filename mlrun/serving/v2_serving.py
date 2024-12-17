@@ -569,6 +569,12 @@ def _init_endpoint_record(
     :param graph_server: A GraphServer object which will be used for getting the function uri.
     :param model:        Base model serving class (v2). It contains important details for the model endpoint record
                          such as model name, model path, and model version.
+    :param creation_strategy: model endpoint creation strategy :
+                            * overwrite - Create a new model endpoint and delete the last old one if it exists.
+                            * inplace - Use the existing model endpoint if it already exists (default).
+                            * archive - Preserve the old model endpoint and create a new one,
+                            tagging it as the latest.
+    :param endpoint_type    model endpoint type
 
     :return: Model endpoint unique ID.
     """

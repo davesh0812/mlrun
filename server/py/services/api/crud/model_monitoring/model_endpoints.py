@@ -64,6 +64,11 @@ class ModelEndpoints:
 
         :param db_session:             A session that manages the current dialog with the database.
         :param model_endpoint:         Model endpoint object to update.
+        :param creation_strategy: model endpoint creation strategy :
+                            * overwrite - Create a new model endpoint and delete the last old one if it exists.
+                            * inplace - Use the existing model endpoint if it already exists.
+                            * archive - Preserve the old model endpoint and create a new one,
+                            tagging it as the latest.
 
         :return: `ModelEndpoint` object.
         """
@@ -217,7 +222,7 @@ class ModelEndpoints:
                 name=model_endpoint.metadata.name,
                 function_name=model_endpoint.spec.function_name,
                 function_tag=model_endpoint.spec.function_tag,
-                latest_only=False,
+                latest_only=True,
                 session=db_session,
             )
             .endpoints
