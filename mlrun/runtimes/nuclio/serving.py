@@ -422,7 +422,12 @@ class ServingRuntime(RemoteRuntime):
         if class_name and hasattr(class_name, "to_dict"):
             if model_path:
                 class_name.model_path = model_path
-            key, state = params_to_step(class_name, key)
+            key, state = params_to_step(
+                class_name,
+                key,
+                model_endpoint_creation_strategy=creation_strategy,
+                endpoint_type=schemas.EndpointType.LEAF_EP,
+            )
         else:
             class_name = class_name or self.spec.default_class
             if class_name and not isinstance(class_name, str):
