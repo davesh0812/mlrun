@@ -154,6 +154,8 @@ class ModelEndpoints:
             exist_model_endpoint = None
 
         if not exist_model_endpoint:
+            # there is no model endpoint with the same name
+            # create a new model endpoint using the same logic as archive
             return self._archive_model_endpoint(
                 db_session=db_session, model_endpoint=model_endpoint
             )
