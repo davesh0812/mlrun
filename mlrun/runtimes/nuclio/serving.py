@@ -388,10 +388,12 @@ class ServingRuntime(RemoteRuntime):
                             with multiple router steps)
         :param child_function: child function name, when the model runs in a child function
         :param creation_strategy: model endpoint creation strategy :
-                                    * overwrite - Create a new model endpoint and delete the last old one if it exists.
-                                    * inplace - Use the existing model endpoint if it already exists (default).
-                                    * archive - Preserve the old model endpoint and create a new one,
-                                    tagging it as the latest.
+                            * overwrite: (1) If model endpoints with same name exist - delete the `latest` one.
+                                         (2) Create a new model endpoint entry and set it as `latest`.
+                            * inplace: - If model endpoints with same name exist - update the `latest` entry
+                                        otherwise create new entry (default).
+                            * archive - (1) If model endpoints with the same name exist, preserve them.
+                                        (2) create a new model endpoint with the same name and set it to `latest`
         :param class_args:  extra kwargs to pass to the model serving class __init__
                             (can be read in the model using .get_param(key) method)
         """
