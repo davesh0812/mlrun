@@ -570,15 +570,15 @@ def _init_endpoint_record(
     :param model:        Base model serving class (v2). It contains important details for the model endpoint record
                          such as model name, model path, and model version.
     :param creation_strategy: Strategy for creating or updating the model endpoint:
-        - **overwrite**:
-          - If model endpoints with the same name exist, delete the `latest` one.
-          - Create a new model endpoint entry and set it as `latest`.
-        - **inplace** (default):
-          - If model endpoints with the same name exist, update the `latest` entry.
-          - Otherwise, create a new entry.
-        - **archive**:
-          - If model endpoints with the same name exist, preserve them.
-          - Create a new model endpoint with the same name and set it to `latest`.
+        * **overwrite**:
+        1. If model endpoints with the same name exist, delete the `latest` one.
+        2. Create a new model endpoint entry and set it as `latest`.
+        * **inplace** (default):
+        1. If model endpoints with the same name exist, update the `latest` entry.
+        2. Otherwise, create a new entry.
+        * **archive**:
+        1. If model endpoints with the same name exist, preserve them.
+        2. Create a new model endpoint with the same name and set it to `latest`.
     :param endpoint_type    model endpoint type
 
     :return: Model endpoint unique ID.
