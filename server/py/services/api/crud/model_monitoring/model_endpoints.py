@@ -105,8 +105,9 @@ class ModelEndpoints:
 
         if model_path and mlrun.datastore.is_store_uri(model_path):
             try:
+                _, model_uri = mlrun.datastore.parse_store_uri(model_path)
                 project, key, iteration, tag, tree, uid = parse_artifact_uri(
-                    model_path, model_endpoint.metadata.project
+                    model_uri, model_endpoint.metadata.project
                 )
                 model = mlrun.artifacts.dict_to_artifact(
                     services.api.crud.Artifacts().get_artifact(
@@ -159,10 +160,14 @@ class ModelEndpoints:
         elif (
             creation_strategy == mlrun.common.schemas.ModelEndpointCreationStrategy.SKIP
         ):
-            logger.info("Skipping model endpoint creation")
+            logger.info(
+                "Skipping model endpoint creation", creation_strategy=creation_strategy
+            )
             return
         else:
-            raise mlrun.errors.MLRunInvalidArgumentError("Invalid creation strategy")
+            raise mlrun.errors.MLRunInvalidArgumentError(
+                f"{creation_strategy} is invalid creation strategy"
+            )
         if attributes:
             # 5. write the model endpoint to the db again
             framework.utils.singletons.db.get_db().update_model_endpoint(

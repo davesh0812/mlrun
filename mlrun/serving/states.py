@@ -726,7 +726,7 @@ class RouterStep(TaskStep):
         self.model_endpoint_creation_strategy = (
             schemas.ModelEndpointCreationStrategy.INPLACE
             if class_name and "serving.VotingEnsemble" in class_name
-            else schemas.ModelEndpointCreationStrategy.SKIP,
+            else schemas.ModelEndpointCreationStrategy.SKIP
         )
 
     def get_children(self):

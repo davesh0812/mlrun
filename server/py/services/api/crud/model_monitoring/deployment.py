@@ -1215,6 +1215,8 @@ class MonitoringDeployment:
         :param function:        The function object.
         :param function_name:   The name of the function.
         """
+        logger.info("[David] inside create_model_endpoints")
+
         try:
             function = mlrun.new_function(
                 runtime=function,
@@ -1245,10 +1247,15 @@ class MonitoringDeployment:
             creation_strategy,
             model_path,
         ) in model_endpoints_instructions:
+            logger.info(
+                "[David] inside create_model_endpoints - for loop",
+                model_endpoint=model_endpoint,
+                creation_strategy=creation_strategy,
+                model_path=model_path,
+            )
             tasks.append(
                 asyncio.create_task(
-                    run_in_threadpool(
-                        framework.db.session.run_async_function_with_new_db_session,
+                    framework.db.session.run_async_function_with_new_db_session(
                         func=services.api.crud.ModelEndpoints().create_model_endpoint,
                         model_endpoint=model_endpoint,
                         creation_strategy=creation_strategy,
@@ -1321,7 +1328,7 @@ class MonitoringDeployment:
                     "",
                 )
             )
-        for route in router_step.routes:
+        for route in router_step.routes.values():
             if (
                 route.model_endpoint_creation_strategy
                 != mm_constants.ModelEndpointCreationStrategy.SKIP
@@ -1357,7 +1364,7 @@ class MonitoringDeployment:
         ]
     ]:
         model_endpoints_instructions = []
-        for step in root_flow_step.steps:
+        for step in root_flow_step.steps.values():
             if isinstance(step, mlrun.serving.states.RouterStep):
                 model_endpoints_instructions.extend(
                     self._extract_meps_from_router_step(
