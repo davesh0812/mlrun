@@ -776,7 +776,7 @@ class RouterStep(TaskStep):
                 class_args,
                 handler=handler,
                 model_endpoint_creation_strategy=creation_strategy,
-                endpoint_type=schemas.EndpointType.NODE_EP,
+                endpoint_type=schemas.EndpointType.LEAF_EP,
             )
         route.function = function or route.function
 
