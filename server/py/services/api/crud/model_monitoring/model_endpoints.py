@@ -38,7 +38,7 @@ from mlrun.model_monitoring.db._stats import (
     ModelMonitoringDriftMeasuresFile,
     delete_model_monitoring_stats_folder,
 )
-from mlrun.utils import logger
+from mlrun.utils import logger, parse_artifact_uri
 
 import framework.api.utils
 import framework.utils.singletons.db
@@ -57,6 +57,7 @@ class ModelEndpoints:
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
+        model_path: Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Creates model endpoint record in DB. The DB store target is defined either by a provided connection string
@@ -74,8 +75,9 @@ class ModelEndpoints:
             * **archive**:
             1. If model endpoints with the same name exist, preserve them.
             2. Create a new model endpoint with the same name and set it to `latest`.
+        :param model_path:             The path to the model artifact.
 
-        :return: `ModelEndpoint` object.
+        :return: The crated `ModelEndpoint` object.
         """
         if model_endpoint.spec.function_name and not model_endpoint.spec.function_tag:
             logger.info("Function tag not provided, setting to 'latest'")
@@ -100,7 +102,35 @@ class ModelEndpoints:
             )
         except mlrun.errors.MLRunNotFoundError:
             logger.info("The model endpoint is created on a non-existing function")
-            pass
+
+        if model_path and mlrun.datastore.is_store_uri(model_path):
+            try:
+                project, key, iteration, tag, tree, uid = parse_artifact_uri(
+                    model_path, model_endpoint.metadata.project
+                )
+                model = mlrun.artifacts.dict_to_artifact(
+                    services.api.crud.Artifacts().get_artifact(
+                        db_session,
+                        key=key,
+                        tag=tag,
+                        iter=iteration,
+                        project=project,
+                        producer_id=tree,
+                        object_uid=uid,
+                    )
+                )
+
+                model_endpoint.spec.model_name = model.metadata.key
+                model_endpoint.spec.model_db_key = model.spec.db_key
+                model_endpoint.spec.model_uid = model.metadata.uid
+                model_endpoint.spec.model_tag = model.tag
+                model_endpoint.metadata.labels.update(
+                    model.labels
+                )  # todo : check if we still need this
+            except mlrun.errors.MLRunNotFoundError:
+                logger.info("The model endpoint is created on a non-existing model")
+        else:
+            logger.info("The model endpoint is created on a non-existing model")
 
         if (
             creation_strategy
@@ -126,6 +156,11 @@ class ModelEndpoints:
                 db_session=db_session,
                 model_endpoint=model_endpoint,
             )
+        elif (
+            creation_strategy == mlrun.common.schemas.ModelEndpointCreationStrategy.SKIP
+        ):
+            logger.info("Skipping model endpoint creation")
+            return
         else:
             raise mlrun.errors.MLRunInvalidArgumentError("Invalid creation strategy")
         if attributes:

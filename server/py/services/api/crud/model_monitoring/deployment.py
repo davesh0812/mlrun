@@ -14,6 +14,7 @@
 import asyncio
 import json
 import time
+import traceback
 import typing
 import uuid
 from http import HTTPStatus
@@ -64,9 +65,9 @@ class MonitoringDeployment:
     def __init__(
         self,
         project: str,
-        auth_info: mlrun.common.schemas.AuthInfo,
-        db_session: sqlalchemy.orm.Session,
-        model_monitoring_access_key: typing.Optional[str],
+        auth_info: typing.Optional[mlrun.common.schemas.AuthInfo] = None,
+        db_session: typing.Optional[sqlalchemy.orm.Session] = None,
+        model_monitoring_access_key: typing.Optional[str] = None,
         parquet_batching_max_events: int = mlrun.mlconf.model_endpoint_monitoring.parquet_batching_max_events,
         max_parquet_save_interval: int = mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs,
     ) -> None:
@@ -1207,18 +1208,43 @@ class MonitoringDeployment:
             return False
         return True
 
-    async def create_model_endpoints(self, function: mlrun.runtimes.ServingRuntime):
+    async def create_model_endpoints(self, function: dict, function_name: str):
         """
         Create model endpoints for the given function.
 
-        :param function: The function object.
-        :param db_session: The session that manages the current dialog with the database.
+        :param function:        The function object.
+        :param function_name:   The name of the function.
         """
+        try:
+            function = mlrun.new_function(
+                runtime=function,
+                project=self.project,
+                name=function_name,
+            )
+        except Exception as err:
+            logger.error(traceback.format_exc())
+            framework.api.utils.log_and_raise(
+                HTTPStatus.BAD_REQUEST.value,
+                reason=f"Runtime error: {mlrun.errors.err_to_str(err)}",
+            )
         tasks: list[asyncio.Task] = []
-        model_endpoints: list[tuple[mlrun.common.schemas.ModelEndpoint, str, str]] = (
-            self._extract_model_endpoints_from_function_graph(function_name=function.metadata.name, function_tag=function.metadata.tag, graph=function.spec.graph)
+        model_endpoints_instructions: list[
+            tuple[
+                mlrun.common.schemas.ModelEndpoint,
+                mm_constants.ModelEndpointCreationStrategy,
+                str,
+            ]
+        ] = self._extract_model_endpoints_from_function_graph(
+            function_name=function.metadata.name,
+            function_tag=function.metadata.tag,
+            track_models=function.spec.track_models,
+            graph=function.spec.graph,
         )
-        for model_endpoint, creation_strategy, model_path in model_endpoints:
+        for (
+            model_endpoint,
+            creation_strategy,
+            model_path,
+        ) in model_endpoints_instructions:
             tasks.append(
                 asyncio.create_task(
                     run_in_threadpool(
@@ -1226,7 +1252,7 @@ class MonitoringDeployment:
                         func=services.api.crud.ModelEndpoints().create_model_endpoint,
                         model_endpoint=model_endpoint,
                         creation_strategy=creation_strategy,
-                        model_path=model_path
+                        model_path=model_path,
                     )
                 )
             )
@@ -1236,17 +1262,155 @@ class MonitoringDeployment:
         self,
         function_name: str,
         function_tag: str,
+        track_models: bool,
         graph: typing.Union[
             mlrun.serving.states.RouterStep, mlrun.serving.states.RootFlowStep
         ],
-    ) -> list[tuple[mlrun.common.schemas.ModelEndpoint, str, str]]:
-        model_endpoints = []
-        if hasattr(graph, "kind") and graph.kind == "router":
-            pass
-        if not hasattr(graph, "kind") and hasattr(graph, "steps"):
-            pass
+    ) -> list[
+        tuple[
+            mlrun.common.schemas.ModelEndpoint,
+            mm_constants.ModelEndpointCreationStrategy,
+            str,
+        ]
+    ]:
+        model_endpoints_instructions = []
+        if isinstance(graph, mlrun.serving.states.RouterStep):
+            model_endpoints_instructions.extend(
+                self._extract_meps_from_router_step(
+                    function_name, function_tag, track_models, graph
+                )
+            )
+        elif isinstance(graph, mlrun.serving.states.RootFlowStep):
+            model_endpoints_instructions.extend(
+                self._extract_meps_from_root_flow_step(
+                    function_name, function_tag, track_models, graph
+                )
+            )
+        return model_endpoints_instructions
 
-        return model_endpoints
+    def _extract_meps_from_router_step(
+        self,
+        function_name: str,
+        function_tag: str,
+        track_models: bool,
+        router_step: mlrun.serving.states.RouterStep,
+    ) -> list[
+        tuple[
+            mlrun.common.schemas.ModelEndpoint,
+            mm_constants.ModelEndpointCreationStrategy,
+            str,
+        ]
+    ]:
+        model_endpoints_instructions = []
+        if (
+            router_step.model_endpoint_creation_strategy
+            != mm_constants.ModelEndpointCreationStrategy.SKIP
+        ):
+            # todo : children_uids (????)
+            model_endpoints_instructions.append(
+                (
+                    self._model_endpoint_draft(
+                        name=router_step.name,
+                        endpoint_type=router_step.endpoint_type,
+                        model_class=router_step.class_name,
+                        function_name=function_name,
+                        function_tag=function_tag,
+                        track_models=track_models,
+                    ),
+                    router_step.model_endpoint_creation_strategy,
+                    "",
+                )
+            )
+        for route in router_step.routes:
+            if (
+                route.model_endpoint_creation_strategy
+                != mm_constants.ModelEndpointCreationStrategy.SKIP
+            ):
+                model_endpoints_instructions.append(
+                    (
+                        self._model_endpoint_draft(
+                            name=route.name,
+                            endpoint_type=route.endpoint_type,
+                            model_class=route.class_name,
+                            function_name=function_name,
+                            function_tag=function_tag,
+                            track_models=track_models,
+                        ),
+                        route.model_endpoint_creation_strategy,
+                        route.class_args.get("model_path", ""),
+                    )
+                )
+
+        return model_endpoints_instructions
+
+    def _extract_meps_from_root_flow_step(
+        self,
+        function_name: str,
+        function_tag: str,
+        track_models: bool,
+        root_flow_step: mlrun.serving.states.RootFlowStep,
+    ) -> list[
+        tuple[
+            mlrun.common.schemas.ModelEndpoint,
+            mm_constants.ModelEndpointCreationStrategy,
+            str,
+        ]
+    ]:
+        model_endpoints_instructions = []
+        for step in root_flow_step.steps:
+            if isinstance(step, mlrun.serving.states.RouterStep):
+                model_endpoints_instructions.extend(
+                    self._extract_meps_from_router_step(
+                        function_name, function_tag, track_models, step
+                    )
+                )
+            else:
+                if (
+                    step.model_endpoint_creation_strategy
+                    != mm_constants.ModelEndpointCreationStrategy.SKIP
+                ):
+                    model_endpoints_instructions.append(
+                        (
+                            self._model_endpoint_draft(
+                                name=step.name,
+                                endpoint_type=step.endpoint_type,
+                                model_class=step.class_name,
+                                function_name=function_name,
+                                function_tag=function_tag,
+                                track_models=track_models,
+                            ),
+                            step.model_endpoint_creation_strategy,
+                            step.class_args.get("model_path", ""),
+                        )
+                    )
+        return model_endpoints_instructions
+
+    def _model_endpoint_draft(
+        self,
+        name,
+        endpoint_type: mm_constants.EndpointType,
+        model_class: str,
+        function_name: str,
+        function_tag: str,
+        track_models: bool,
+    ) -> mlrun.common.schemas.ModelEndpoint:
+        return mlrun.common.schemas.ModelEndpoint(
+            metadata=mlrun.common.schemas.ModelEndpointMetadata(
+                project=self.project,
+                name=name,
+                endpoint_type=endpoint_type,
+            ),
+            spec=mlrun.common.schemas.ModelEndpointSpec(
+                function_name=function_name,
+                function_tag=function_tag or "latest",
+                model_class=model_class,
+            ),
+            status=mlrun.common.schemas.ModelEndpointStatus(
+                monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
+                if track_models
+                else mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled,
+            ),
+        )
 
 
 def get_endpoint_features(

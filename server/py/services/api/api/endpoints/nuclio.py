@@ -262,22 +262,36 @@ async def deploy_function(
     # schedules are meant to be run solely by the chief then if serving function and track_models is enabled,
     # it means that schedules will be created as part of building the function, and if not chief then redirect to chief.
     # to reduce redundant load on the chief, we re-route the request only if the user has permissions
-    if function.get("kind", "") == mlrun.runtimes.RuntimeKinds.serving and function.get(
-        "spec", {}
-    ).get("track_models", False):
-        if (
-            mlrun.mlconf.httpdb.clusterization.role
-            != mlrun.common.schemas.ClusterizationRole.chief
-        ):
-            logger.info(
-                "Requesting to deploy serving function with track models, re-routing to chief",
-                name=name,
+    monitoring_deployment = None
+    if function.get("kind", "") == mlrun.runtimes.RuntimeKinds.serving:
+        monitoring_deployment = (
+            services.api.crud.model_monitoring.deployment.MonitoringDeployment(
                 project=project,
-                function=function,
             )
-            chief_client = framework.utils.clients.chief.Client()
-            return await chief_client.build_function(request=request, json=data)
+        )
+        if function.get("spec", {}).get("track_models", False):
+            if (
+                mlrun.mlconf.httpdb.clusterization.role
+                != mlrun.common.schemas.ClusterizationRole.chief
+            ):
+                logger.info(
+                    "Requesting to deploy serving function with track models, re-routing to chief",
+                    name=name,
+                    project=project,
+                    function=function,
+                )
 
+                chief_client = framework.utils.clients.chief.Client()
+                data = await chief_client.build_function(request=request, json=data)
+                endpoints: list[
+                    mlrun.common.schemas.ModelEndpoint
+                ] = await monitoring_deployment.create_model_endpoints(
+                    function=function, function_name=name
+                )
+                data.body["endpoints_list"] = mlrun.common.schemas.ModelEndpointList(
+                    endpoints=endpoints
+                )
+                return data
     fn = await run_in_threadpool(
         _deploy_function,
         db_session,
@@ -290,8 +304,14 @@ async def deploy_function(
         client_python_version,
     )
 
+    endpoints: list[
+        mlrun.common.schemas.ModelEndpoint
+    ] = await monitoring_deployment.create_model_endpoints(
+        function=function, function_name=name
+    )
     return {
         "data": fn.to_dict(),
+        "endpoints_list": mlrun.common.schemas.ModelEndpointList(endpoints=endpoints),
     }
 
 
@@ -453,7 +473,7 @@ def create_model_monitoring_stream(
             response.raise_for_status([409, 204])
 
 
-async def _deploy_function(
+def _deploy_function(
     db_session: sqlalchemy.orm.Session,
     auth_info: mlrun.common.schemas.AuthInfo,
     project: str,
@@ -492,7 +512,7 @@ async def _deploy_function(
         fn.pre_deploy_validation()
         fn.save(versioned=False)
 
-        fn = await _deploy_nuclio_runtime(
+        fn = _deploy_nuclio_runtime(
             auth_info,
             builder_env,
             client_python_version,
@@ -511,11 +531,7 @@ async def _deploy_function(
     return fn
 
 
-async def func_1():
-    pass
-
-
-async def _deploy_nuclio_runtime(
+def _deploy_nuclio_runtime(
     auth_info, builder_env, client_python_version, client_version, db_session, fn
 ):
     monitoring_application = (
@@ -564,9 +580,6 @@ async def _deploy_nuclio_runtime(
             )
 
         if serving_to_monitor:
-            # # todo : delete this after solving ML-8771 and implement ML-7930
-            # fn.spec.min_replicas = 1
-            # fn.spec.max_replicas = 1
             if not client_version:
                 framework.api.utils.log_and_raise(
                     HTTPStatus.BAD_REQUEST.value,
@@ -585,9 +598,6 @@ async def _deploy_nuclio_runtime(
                     f"('mlrun/') and set-tracking is enabled, "
                     f"client version must be >= {MINIMUM_CLIENT_VERSION_FOR_MM}",
                 )
-
-    if fn.kind == mlrun.runtimes.RuntimeKinds.serving:
-        await monitoring_deployment.create_model_endpoints(fn)
 
     services.api.crud.runtimes.nuclio.function.deploy_nuclio_function(
         fn,

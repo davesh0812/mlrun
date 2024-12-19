@@ -146,13 +146,15 @@ class V2ModelServer(StepToDict):
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
 
-        if not self.context.is_mock or self.context.monitoring_mock:
-            self.model_endpoint_uid = _init_endpoint_record(
-                graph_server=server,
-                model=self,
-                creation_strategy=kwargs.get("creation_strategy"),
-                endpoint_type=kwargs.get("endpoint_type"),
-            )
+        # if not self.context.is_mock or self.context.monitoring_mock:
+        #     self.model_endpoint_uid = _init_endpoint_record(
+        #         graph_server=server,
+        #         model=self,
+        #         creation_strategy=kwargs.get("creation_strategy"),
+        #         endpoint_type=kwargs.get("endpoint_type"),
+        #     )
+        if not self.context.is_mock and not self.model_spec:
+            self.get_model()
         self._model_logger = (
             _ModelLogPusher(self, self.context)
             if self.context and self.context.stream.enabled
@@ -232,23 +234,6 @@ class V2ModelServer(StepToDict):
             event_body = self._inputs_to_list(event_body)
         request = self.preprocess(event_body, op)
         return self.validate(request, op)
-
-    @property
-    def versioned_model_name(self):
-        if self._versioned_model_name:
-            return self._versioned_model_name
-
-        # Generating version model value based on the model name and model version
-        if self.model_path and self.model_path.startswith("store://"):
-            # Enrich the model server with the model artifact metadata
-            self.get_model()
-            if not self.version:
-                # Enrich the model version with the model artifact tag
-                self.version = self.model_spec.tag
-            self.labels = self.model_spec.labels
-        version = self.version or "latest"
-        self._versioned_model_name = f"{self.name}:{version}"
-        return self._versioned_model_name
 
     def do_event(self, event, *args, **kwargs):
         """main model event handler method"""
