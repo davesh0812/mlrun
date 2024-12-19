@@ -52,7 +52,7 @@ DEFAULT_FUNCTION_TAG = "latest"
 class ModelEndpoints:
     """Provide different methods for handling model endpoints such as listing, writing and deleting"""
 
-    def create_model_endpoint(
+    async def create_model_endpoint(
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
@@ -80,6 +80,12 @@ class ModelEndpoints:
         if model_endpoint.spec.function_name and not model_endpoint.spec.function_tag:
             logger.info("Function tag not provided, setting to 'latest'")
             model_endpoint.spec.function_tag = DEFAULT_FUNCTION_TAG
+
+        logger.info(
+            "Creating Model Endpoint record",
+            model_endpoint_metadata=model_endpoint.metadata,
+            creation_strategy=creation_strategy,
+        )
 
         # get function_uid from db
         try:

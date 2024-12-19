@@ -453,7 +453,7 @@ def create_model_monitoring_stream(
             response.raise_for_status([409, 204])
 
 
-def _deploy_function(
+async def _deploy_function(
     db_session: sqlalchemy.orm.Session,
     auth_info: mlrun.common.schemas.AuthInfo,
     project: str,
@@ -492,7 +492,7 @@ def _deploy_function(
         fn.pre_deploy_validation()
         fn.save(versioned=False)
 
-        fn = _deploy_nuclio_runtime(
+        fn = await _deploy_nuclio_runtime(
             auth_info,
             builder_env,
             client_python_version,
@@ -511,7 +511,11 @@ def _deploy_function(
     return fn
 
 
-def _deploy_nuclio_runtime(
+async def func_1():
+    pass
+
+
+async def _deploy_nuclio_runtime(
     auth_info, builder_env, client_python_version, client_version, db_session, fn
 ):
     monitoring_application = (
@@ -521,24 +525,24 @@ def _deploy_nuclio_runtime(
     serving_to_monitor = (
         fn.kind == mlrun.runtimes.RuntimeKinds.serving and fn.spec.track_models
     )
-    if monitoring_application or serving_to_monitor:
-        if not mlrun.mlconf.is_ce_mode():
-            model_monitoring_access_key = process_model_monitoring_secret(
-                db_session,
-                fn.metadata.project,
-                mlrun.common.schemas.model_monitoring.ProjectSecretKeys.ACCESS_KEY,
-            )
-        else:
-            model_monitoring_access_key = None
-
-        monitoring_deployment = (
-            services.api.crud.model_monitoring.deployment.MonitoringDeployment(
-                project=fn.metadata.project,
-                auth_info=auth_info,
-                db_session=db_session,
-                model_monitoring_access_key=model_monitoring_access_key,
-            )
+    if not mlrun.mlconf.is_ce_mode():
+        model_monitoring_access_key = process_model_monitoring_secret(
+            db_session,
+            fn.metadata.project,
+            mlrun.common.schemas.model_monitoring.ProjectSecretKeys.ACCESS_KEY,
         )
+    else:
+        model_monitoring_access_key = None
+
+    monitoring_deployment = (
+        services.api.crud.model_monitoring.deployment.MonitoringDeployment(
+            project=fn.metadata.project,
+            auth_info=auth_info,
+            db_session=db_session,
+            model_monitoring_access_key=model_monitoring_access_key,
+        )
+    )
+    if monitoring_application or serving_to_monitor:
         try:
             monitoring_deployment.check_if_credentials_are_set()
         except mlrun.errors.MLRunBadRequestError as exc:
@@ -560,9 +564,9 @@ def _deploy_nuclio_runtime(
             )
 
         if serving_to_monitor:
-            # todo : delete this after solving ML-8771 and implement ML-7930
-            fn.spec.min_replicas = 1
-            fn.spec.max_replicas = 1
+            # # todo : delete this after solving ML-8771 and implement ML-7930
+            # fn.spec.min_replicas = 1
+            # fn.spec.max_replicas = 1
             if not client_version:
                 framework.api.utils.log_and_raise(
                     HTTPStatus.BAD_REQUEST.value,
@@ -581,6 +585,9 @@ def _deploy_nuclio_runtime(
                     f"('mlrun/') and set-tracking is enabled, "
                     f"client version must be >= {MINIMUM_CLIENT_VERSION_FOR_MM}",
                 )
+
+    if fn.kind == mlrun.runtimes.RuntimeKinds.serving:
+        await monitoring_deployment.create_model_endpoints(fn)
 
     services.api.crud.runtimes.nuclio.function.deploy_nuclio_function(
         fn,

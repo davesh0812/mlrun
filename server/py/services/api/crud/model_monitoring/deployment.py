@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import json
 import time
 import typing
@@ -1206,6 +1206,47 @@ class MonitoringDeployment:
             )
             return False
         return True
+
+    async def create_model_endpoints(self, function: mlrun.runtimes.ServingRuntime):
+        """
+        Create model endpoints for the given function.
+
+        :param function: The function object.
+        :param db_session: The session that manages the current dialog with the database.
+        """
+        tasks: list[asyncio.Task] = []
+        model_endpoints: list[tuple[mlrun.common.schemas.ModelEndpoint, str, str]] = (
+            self._extract_model_endpoints_from_function_graph(function_name=function.metadata.name, function_tag=function.metadata.tag, graph=function.spec.graph)
+        )
+        for model_endpoint, creation_strategy, model_path in model_endpoints:
+            tasks.append(
+                asyncio.create_task(
+                    run_in_threadpool(
+                        framework.db.session.run_async_function_with_new_db_session,
+                        func=services.api.crud.ModelEndpoints().create_model_endpoint,
+                        model_endpoint=model_endpoint,
+                        creation_strategy=creation_strategy,
+                        model_path=model_path
+                    )
+                )
+            )
+        return await asyncio.gather(*tasks)
+
+    def _extract_model_endpoints_from_function_graph(
+        self,
+        function_name: str,
+        function_tag: str,
+        graph: typing.Union[
+            mlrun.serving.states.RouterStep, mlrun.serving.states.RootFlowStep
+        ],
+    ) -> list[tuple[mlrun.common.schemas.ModelEndpoint, str, str]]:
+        model_endpoints = []
+        if hasattr(graph, "kind") and graph.kind == "router":
+            pass
+        if not hasattr(graph, "kind") and hasattr(graph, "steps"):
+            pass
+
+        return model_endpoints
 
 
 def get_endpoint_features(
