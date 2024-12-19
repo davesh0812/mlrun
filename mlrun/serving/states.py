@@ -725,7 +725,7 @@ class RouterStep(TaskStep):
         self.endpoint_type = schemas.EndpointType.ROUTER
         self.model_endpoint_creation_strategy = (
             schemas.ModelEndpointCreationStrategy.INPLACE
-            if "serving.VotingEnsemble" in class_name
+            if class_name and "serving.VotingEnsemble" in class_name
             else schemas.ModelEndpointCreationStrategy.SKIP,
         )
 
