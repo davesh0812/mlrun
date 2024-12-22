@@ -1433,7 +1433,7 @@ class MonitoringDeployment:
         function_name: str,
         function_tag: str,
         track_models: bool,
-        children_names: list[str] = None,
+        children_names: typing.Optional[list[str]] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
         function_tag = function_tag or "latest"
         return mlrun.common.schemas.ModelEndpoint(
