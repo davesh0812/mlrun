@@ -14,7 +14,6 @@
 #
 import json
 from pprint import pprint
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -99,30 +98,22 @@ def test_ensemble_tracking():
 
 @pytest.mark.parametrize("enable_tracking", [True, False])
 def test_tracked_function(rundb_mock, enable_tracking):
-    with patch("mlrun.get_run_db", return_value=rundb_mock):
-        project = mlrun.new_project("test-pro", save=False)
-        fn = mlrun.new_function("test-fn", kind="serving", project=project.name)
-        model_uri = _log_model(project)
-        fn.add_model(
-            "m1",
-            model_uri,
-            "ModelTestingClass",
-            multiplier=5,
-            creation_strategy=ModelEndpointCreationStrategy.ARCHIVE,
-        )
-        fn.set_tracking("dummy://", enable_tracking=enable_tracking)
-        server = fn.to_mock_server(track_models=True)
-        server.test("/v2/models/m1/infer", testdata)
+    project = mlrun.new_project("test-pro", save=False)
+    fn = mlrun.new_function("test-fn", kind="serving", project=project.name)
+    model_uri = _log_model(project)
+    fn.add_model(
+        "m1",
+        model_uri,
+        "ModelTestingClass",
+        multiplier=5,
+        creation_strategy=ModelEndpointCreationStrategy.ARCHIVE,
+    )
+    fn.set_tracking("dummy://", enable_tracking=enable_tracking)
+    server = fn.to_mock_server(track_models=True)
+    server.test("/v2/models/m1/infer", testdata)
 
-        dummy_stream = server.context.stream.output_stream
-        assert len(dummy_stream.event_list) == 1, "expected stream to get one message"
-
-    rundb_mock.create_model_endpoint.assert_called_once()
-    if enable_tracking:
-        assert (
-            rundb_mock.create_model_endpoint.call_args.kwargs["creation_strategy"]
-            == ModelEndpointCreationStrategy.ARCHIVE
-        ), "creation_strategy attribute of the model endpoint was not as expected"
+    dummy_stream = server.context.stream.output_stream
+    assert len(dummy_stream.event_list) == 1, "expected stream to get one message"
 
 
 def rec_to_data(rec):

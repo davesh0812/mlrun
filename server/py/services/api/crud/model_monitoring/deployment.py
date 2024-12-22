@@ -49,6 +49,7 @@ import framework.utils.singletons.k8s
 import services.api.api.endpoints.nuclio
 import services.api.crud.model_monitoring.helpers
 import services.api.utils.functions
+from framework.db.sqldb.db import unversioned_tagged_object_uid_prefix
 
 _STREAM_PROCESSING_FUNCTION_PATH = mlrun.model_monitoring.stream_processing.__file__
 _MONITORING_APPLICATION_CONTROLLER_FUNCTION_PATH = (
@@ -1215,8 +1216,6 @@ class MonitoringDeployment:
         :param function:        The function object.
         :param function_name:   The name of the function.
         """
-        logger.info("[David] inside create_model_endpoints")
-
         try:
             function = mlrun.new_function(
                 runtime=function,
@@ -1242,18 +1241,48 @@ class MonitoringDeployment:
             track_models=function.spec.track_models,
             graph=function.spec.graph,
         )
+        router_model_endpoints_instructions: list[
+            tuple[
+                mlrun.common.schemas.ModelEndpoint,
+                mm_constants.ModelEndpointCreationStrategy,
+                str,
+            ]
+        ] = []
         for (
             model_endpoint,
             creation_strategy,
             model_path,
         ) in model_endpoints_instructions:
-            logger.info(
-                "[David] inside create_model_endpoints - for loop",
-                model_endpoint=model_endpoint,
-                creation_strategy=creation_strategy,
-                model_path=model_path,
-            )
-            tasks.append(
+            if (
+                model_endpoint.metadata.endpoint_type
+                != mm_constants.EndpointType.ROUTER
+            ):
+                tasks.append(
+                    asyncio.create_task(
+                        framework.db.session.run_async_function_with_new_db_session(
+                            func=services.api.crud.ModelEndpoints().create_model_endpoint,
+                            model_endpoint=model_endpoint,
+                            creation_strategy=creation_strategy,
+                            model_path=model_path,
+                        )
+                    )
+                )
+            else:
+                router_model_endpoints_instructions.append(
+                    (model_endpoint, creation_strategy, model_path)
+                )
+
+        created_model_endpoint = await asyncio.gather(*tasks)
+        router_tasks: list[asyncio.Task] = []
+        for (
+            model_endpoint,
+            creation_strategy,
+            model_path,
+        ) in router_model_endpoints_instructions:
+            for mep in created_model_endpoint:
+                if mep.metadata.name in model_endpoint.spec.children:
+                    model_endpoint.spec.children_uids.append(mep.metadata.uid)
+            router_tasks.append(
                 asyncio.create_task(
                     framework.db.session.run_async_function_with_new_db_session(
                         func=services.api.crud.ModelEndpoints().create_model_endpoint,
@@ -1263,7 +1292,9 @@ class MonitoringDeployment:
                     )
                 )
             )
-        return await asyncio.gather(*tasks)
+        created_model_endpoint.extend(await asyncio.gather(*router_tasks))
+
+        return created_model_endpoint
 
     def _extract_model_endpoints_from_function_graph(
         self,
@@ -1309,25 +1340,7 @@ class MonitoringDeployment:
         ]
     ]:
         model_endpoints_instructions = []
-        if (
-            router_step.model_endpoint_creation_strategy
-            != mm_constants.ModelEndpointCreationStrategy.SKIP
-        ):
-            # todo : children_uids (????)
-            model_endpoints_instructions.append(
-                (
-                    self._model_endpoint_draft(
-                        name=router_step.name,
-                        endpoint_type=router_step.endpoint_type,
-                        model_class=router_step.class_name,
-                        function_name=function_name,
-                        function_tag=function_tag,
-                        track_models=track_models,
-                    ),
-                    router_step.model_endpoint_creation_strategy,
-                    "",
-                )
-            )
+        routes_names = []
         for route in router_step.routes.values():
             if (
                 route.model_endpoint_creation_strategy
@@ -1347,6 +1360,26 @@ class MonitoringDeployment:
                         route.class_args.get("model_path", ""),
                     )
                 )
+                routes_names.append(route.name)
+        if (
+            router_step.model_endpoint_creation_strategy
+            != mm_constants.ModelEndpointCreationStrategy.SKIP
+        ):
+            model_endpoints_instructions.append(
+                (
+                    self._model_endpoint_draft(
+                        name=router_step.name,
+                        endpoint_type=router_step.endpoint_type,
+                        model_class=router_step.class_name,
+                        function_name=function_name,
+                        function_tag=function_tag,
+                        track_models=track_models,
+                        children_names=routes_names,
+                    ),
+                    router_step.model_endpoint_creation_strategy,
+                    "",
+                )
+            )
 
         return model_endpoints_instructions
 
@@ -1400,7 +1433,9 @@ class MonitoringDeployment:
         function_name: str,
         function_tag: str,
         track_models: bool,
+        children_names: list[str] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
+        function_tag = function_tag or "latest"
         return mlrun.common.schemas.ModelEndpoint(
             metadata=mlrun.common.schemas.ModelEndpointMetadata(
                 project=self.project,
@@ -1409,8 +1444,10 @@ class MonitoringDeployment:
             ),
             spec=mlrun.common.schemas.ModelEndpointSpec(
                 function_name=function_name,
-                function_tag=function_tag or "latest",
+                function_tag=function_tag,
+                function_uid=f"{unversioned_tagged_object_uid_prefix}{function_tag}",  # remove after ML-8596
                 model_class=model_class,
+                children=children_names,
             ),
             status=mlrun.common.schemas.ModelEndpointStatus(
                 monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled

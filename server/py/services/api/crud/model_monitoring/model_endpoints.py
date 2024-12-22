@@ -89,19 +89,20 @@ class ModelEndpoints:
             creation_strategy=creation_strategy,
         )
 
-        # get function_uid from db
-        try:
-            current_function = framework.utils.singletons.db.get_db().get_function(
-                db_session,
-                name=model_endpoint.spec.function_name,
-                tag=model_endpoint.spec.function_tag,
-                project=model_endpoint.metadata.project,
-            )
-            model_endpoint.spec.function_uid = current_function.get("metadata", {}).get(
-                "uid"
-            )
-        except mlrun.errors.MLRunNotFoundError:
-            logger.info("The model endpoint is created on a non-existing function")
+        if not model_endpoint.spec.function_uid:
+            # get function_uid from db
+            try:
+                current_function = framework.utils.singletons.db.get_db().get_function(
+                    db_session,
+                    name=model_endpoint.spec.function_name,
+                    tag=model_endpoint.spec.function_tag,
+                    project=model_endpoint.metadata.project,
+                )
+                model_endpoint.spec.function_uid = current_function.get(
+                    "metadata", {}
+                ).get("uid")
+            except mlrun.errors.MLRunNotFoundError:
+                logger.info("The model endpoint is created on a non-existing function")
 
         if model_path and mlrun.datastore.is_store_uri(model_path):
             try:

@@ -30,7 +30,6 @@ import mlrun.common.model_monitoring
 import mlrun.common.schemas.model_monitoring
 from mlrun.utils import logger, now_date
 
-from .server import GraphServer
 from .utils import RouterToDict, _extract_input_data, _update_result_body
 from .v2_serving import _ModelLogPusher
 

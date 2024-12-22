@@ -537,7 +537,6 @@ class ServingRuntime(RemoteRuntime):
 
     def _deploy_function_refs(self, builder_env: Optional[dict] = None):
         """set metadata and deploy child functions"""
-        # todo check uniqueness of meps names
         for function_ref in self._spec.function_refs.values():
             logger.info(f"deploy child function {function_ref.name} ...")
             function_object = function_ref.function_object
