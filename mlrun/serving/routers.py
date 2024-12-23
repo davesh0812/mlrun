@@ -616,13 +616,14 @@ class VotingEnsemble(ParallelRun):
         if not server:
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
-        self.model_endpoint = mlrun.get_run_db().get_model_endpoint(
-            project=server.project,
-            name=self.name,
-            function_name=server.function_name,
-            function_tag=server.function_tag or "latest",
-        )
-        self.model_endpoint_uid = self.model_endpoint.metadata.uid
+        if not self.context.is_mock or self.context.monitoring_mock:
+            self.model_endpoint = mlrun.get_run_db().get_model_endpoint(
+                project=server.project,
+                name=self.name,
+                function_name=server.function_name,
+                function_tag=server.function_tag or "latest",
+            )
+            self.model_endpoint_uid = self.model_endpoint.metadata.uid
         self._update_weights(self.weights)
 
     def _resolve_route(self, body, urlpath):
