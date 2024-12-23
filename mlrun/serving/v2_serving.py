@@ -115,6 +115,7 @@ class V2ModelServer(StepToDict):
             self.ready = True
         self._versioned_model_name = None
         self.model_endpoint_uid = None
+        self.model_endpoint = None
         self.shard_by_endpoint = shard_by_endpoint
         self._model_logger = None
 
@@ -138,15 +139,22 @@ class V2ModelServer(StepToDict):
             else:
                 self._load_and_update_state()
 
-        server = getattr(self.context, "_server", None) or getattr(
-            self.context, "server", None
-        )
+        server: mlrun.serving.GraphServer = getattr(
+            self.context, "_server", None
+        ) or getattr(self.context, "server", None)
         if not server:
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
 
         if not self.context.is_mock and not self.model_spec:
             self.get_model()
+        self.model_endpoint = mlrun.get_run_db().get_model_endpoint(
+            project=server.project,
+            name=self.name,
+            function_name=server.function_name,
+            function_tag=server.function_tag or "latest",
+        )
+        self.model_endpoint_uid = self.model_endpoint.metadata.uid
         self._model_logger = (
             _ModelLogPusher(self, self.context)
             if self.context and self.context.stream.enabled

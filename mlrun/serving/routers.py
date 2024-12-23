@@ -606,16 +606,23 @@ class VotingEnsemble(ParallelRun):
         self.prediction_col_name = prediction_col_name or "prediction"
         self.format_response_with_col_name_flag = format_response_with_col_name_flag
         self.model_endpoint_uid = None
+        self.model_endpoint = None
         self.shard_by_endpoint = shard_by_endpoint
 
     def post_init(self, mode="sync", **kwargs):
-        server = getattr(self.context, "_server", None) or getattr(
-            self.context, "server", None
-        )
+        server: mlrun.serving.GraphServer = getattr(
+            self.context, "_server", None
+        ) or getattr(self.context, "server", None)
         if not server:
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
-
+        self.model_endpoint = mlrun.get_run_db().get_model_endpoint(
+            project=server.project,
+            name=self.name,
+            function_name=server.function_name,
+            function_tag=server.function_tag or "latest",
+        )
+        self.model_endpoint_uid = self.model_endpoint.metadata.uid
         self._update_weights(self.weights)
 
     def _resolve_route(self, body, urlpath):
