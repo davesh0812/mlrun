@@ -513,24 +513,25 @@ def _deploy_nuclio_runtime(
     serving_to_monitor = (
         fn.kind == mlrun.runtimes.RuntimeKinds.serving and fn.spec.track_models
     )
-    if not mlrun.mlconf.is_ce_mode():
-        model_monitoring_access_key = process_model_monitoring_secret(
-            db_session,
-            fn.metadata.project,
-            mlrun.common.schemas.model_monitoring.ProjectSecretKeys.ACCESS_KEY,
-        )
-    else:
-        model_monitoring_access_key = None
 
-    monitoring_deployment = (
-        services.api.crud.model_monitoring.deployment.MonitoringDeployment(
-            project=fn.metadata.project,
-            auth_info=auth_info,
-            db_session=db_session,
-            model_monitoring_access_key=model_monitoring_access_key,
-        )
-    )
     if monitoring_application or serving_to_monitor:
+        if not mlrun.mlconf.is_ce_mode():
+            model_monitoring_access_key = process_model_monitoring_secret(
+                db_session,
+                fn.metadata.project,
+                mlrun.common.schemas.model_monitoring.ProjectSecretKeys.ACCESS_KEY,
+            )
+        else:
+            model_monitoring_access_key = None
+
+        monitoring_deployment = (
+            services.api.crud.model_monitoring.deployment.MonitoringDeployment(
+                project=fn.metadata.project,
+                auth_info=auth_info,
+                db_session=db_session,
+                model_monitoring_access_key=model_monitoring_access_key,
+            )
+        )
         try:
             monitoring_deployment.check_if_credentials_are_set()
         except mlrun.errors.MLRunBadRequestError as exc:
