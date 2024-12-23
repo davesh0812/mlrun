@@ -258,7 +258,7 @@ class ModelEndpoints:
                 model_endpoint.spec.feature_names
             )
             attributes[mlrun.common.schemas.ModelEndpointSchema.LABEL_NAMES] = (
-                model_endpoint.spec.feature_names
+                model_endpoint.spec.label_names
             )
 
         return model_endpoint, attributes
