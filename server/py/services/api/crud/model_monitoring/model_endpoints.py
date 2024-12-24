@@ -159,13 +159,6 @@ class ModelEndpoints:
                 db_session=db_session,
                 model_endpoint=model_endpoint,
             )
-        elif (
-            creation_strategy == mlrun.common.schemas.ModelEndpointCreationStrategy.SKIP
-        ):
-            logger.info(
-                "Skipping model endpoint creation", creation_strategy=creation_strategy
-            )
-            return
         else:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 f"{creation_strategy} is invalid creation strategy"
