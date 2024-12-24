@@ -58,7 +58,7 @@ class ModelEndpoints:
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
         model_path: Optional[str] = None,
-    ) -> typing.Optional[mlrun.common.schemas.ModelEndpoint]:
+    ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Creates model endpoint record in DB. The DB store target is defined either by a provided connection string
         or by the default store target that is defined in MLRun configuration.
