@@ -1212,6 +1212,11 @@ class MonitoringDeployment:
     async def create_model_endpoints(self, function: dict, function_name: str):
         """
         Create model endpoints for the given function.
+        1. Create model endpoint instructions list from the function graph.
+        The list is tuple which created from the model endpoint object, creation strategy and model path.
+        2. Create the Node/Leaf model endpoints according to the instructions list.
+        3. Update the router model endpoint instructions with the children uids.
+        4. Create the Router model endpoints according to the instructions list.
 
         :param function:        The function object.
         :param function_name:   The name of the function.
@@ -1240,7 +1245,7 @@ class MonitoringDeployment:
             function_tag=function.metadata.tag,
             track_models=function.spec.track_models,
             graph=function.spec.graph,
-        )
+        )  # model endpoint, creation strategy, model path
         router_model_endpoints_instructions: list[
             tuple[
                 mlrun.common.schemas.ModelEndpoint,
@@ -1427,7 +1432,7 @@ class MonitoringDeployment:
 
     def _model_endpoint_draft(
         self,
-        name,
+        name: str,
         endpoint_type: mm_constants.EndpointType,
         model_class: str,
         function_name: str,
@@ -1445,7 +1450,7 @@ class MonitoringDeployment:
             spec=mlrun.common.schemas.ModelEndpointSpec(
                 function_name=function_name,
                 function_tag=function_tag,
-                function_uid=f"{unversioned_tagged_object_uid_prefix}{function_tag}",  # remove after ML-8596
+                function_uid=f"{unversioned_tagged_object_uid_prefix}{function_tag}",  # TODO: remove after ML-8596
                 model_class=model_class,
                 children=children_names,
             ),

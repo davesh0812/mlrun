@@ -113,7 +113,6 @@ class V2ModelServer(StepToDict):
         if model:
             self.model = model
             self.ready = True
-        self._versioned_model_name = None
         self.model_endpoint_uid = None
         self.model_endpoint = None
         self.shard_by_endpoint = shard_by_endpoint

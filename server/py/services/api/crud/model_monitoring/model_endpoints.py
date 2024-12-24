@@ -58,7 +58,7 @@ class ModelEndpoints:
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
         model_path: Optional[str] = None,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+    ) -> typing.Optional[mlrun.common.schemas.ModelEndpoint]:
         """
         Creates model endpoint record in DB. The DB store target is defined either by a provided connection string
         or by the default store target that is defined in MLRun configuration.
@@ -77,7 +77,8 @@ class ModelEndpoints:
             2. Create a new model endpoint with the same name and set it to `latest`.
         :param model_path:             The path to the model artifact.
 
-        :return: The crated `ModelEndpoint` object.
+        :return:    The created `ModelEndpoint` object or `None` if the creation strategy is `SKIP`.
+        :raise:     MLRunInvalidArgumentError if the creation strategy is not valid
         """
         if model_endpoint.spec.function_name and not model_endpoint.spec.function_tag:
             logger.info("Function tag not provided, setting to 'latest'")
