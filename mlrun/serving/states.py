@@ -1739,6 +1739,7 @@ def params_to_step(
         step.full_event = full_event or step.full_event
         step.input_path = input_path or step.input_path
         step.result_path = result_path or step.result_path
+        step.name = name
         if kind == StepKinds.task:
             step.model_endpoint_creation_strategy = model_endpoint_creation_strategy
             step.endpoint_type = endpoint_type
