@@ -718,7 +718,7 @@ class RouterStep(TaskStep):
             class_name,
             class_args,
             handler,
-            name=get_name(name, class_name),
+            name=get_name(name, class_name or RouterStep.kind),
             function=function,
             input_path=input_path,
             result_path=result_path,
