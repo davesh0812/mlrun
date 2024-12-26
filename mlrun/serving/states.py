@@ -1707,7 +1707,7 @@ def get_name(name, class_name):
         raise MLRunInvalidArgumentError("name or class_name must be provided")
     if isinstance(class_name, type):
         return class_name.__name__
-    return class_name
+    return class_name.split(".")[-1]
 
 
 def params_to_step(
@@ -1739,7 +1739,6 @@ def params_to_step(
         step.full_event = full_event or step.full_event
         step.input_path = input_path or step.input_path
         step.result_path = result_path or step.result_path
-        step.name = name
         if kind == StepKinds.task:
             step.model_endpoint_creation_strategy = model_endpoint_creation_strategy
             step.endpoint_type = endpoint_type
