@@ -13,12 +13,16 @@
 # limitations under the License.
 
 import datetime
+import unittest
 from io import StringIO
 from typing import Optional, Union
 
+import pandas as pd
 import pytest
+from dateutil import parser
 
 import mlrun.common.schemas
+from mlrun.model_monitoring.db.tsdb.tdengine import TDEngineConnector
 from mlrun.model_monitoring.db.tsdb.tdengine.schemas import (
     _MODEL_MONITORING_DATABASE,
     TDEngineSchema,
@@ -484,3 +488,27 @@ class TestTDEngineSchema:
             )
             == expected_query
         )
+
+    def test_get_last_request(self):
+        df = pd.DataFrame(
+            {
+                "endpoint_id": ["ep_1", "ep_2"],
+                "last_request": [
+                    "2024-12-27 05:13:47.56 +00:00",
+                    "2024-12-27 05:13:47 +00:00",
+                ],
+            }
+        )
+        tdengine_connector = TDEngineConnector(
+            project="test-project", connection_string="taosws://localhost:6041"
+        )
+        tdengine_connector._get_records = unittest.mock.Mock(return_value=df)
+        last_request = tdengine_connector.get_last_request(endpoint_ids=["ep_1"])
+        assert last_request["last_request"][0] == parser.parse(
+            "2024-12-27 05:13:47.56 +00:00"
+        ).astimezone(datetime.timezone.utc)
+
+        last_request = tdengine_connector.get_last_request(endpoint_ids=["ep_2"])
+        assert last_request["last_request"][0] == parser.parse(
+            "2024-12-27 05:13:47.56 +00:00"
+        ).astimezone(datetime.timezone.utc)

@@ -13,11 +13,10 @@
 # limitations under the License.
 
 import typing
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import pandas as pd
 import taosws
-from dateutil import parser
 from taoswswrap.tdengine_connection import (
     Statement,
     TDEngineConnection,
@@ -543,9 +542,9 @@ class TDEngineConnector(TSDBConnector):
             },
             inplace=True,
         )
-        df[mm_schemas.EventFieldType.LAST_REQUEST] = df[
-            mm_schemas.EventFieldType.LAST_REQUEST
-        ].map(lambda last_request: parser.parse(last_request).astimezone(timezone.utc))
+        df[mm_schemas.EventFieldType.LAST_REQUEST] = pd.to_datetime(
+            df[mm_schemas.EventFieldType.LAST_REQUEST], errors="coerce", utc=True
+        )
         return df
 
     def get_drift_status(
