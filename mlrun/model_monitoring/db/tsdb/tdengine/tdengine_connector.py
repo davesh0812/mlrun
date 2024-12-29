@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import taosws
+from dateutil import parser
 from taoswswrap.tdengine_connection import (
     Statement,
     TDEngineConnection,
@@ -544,11 +545,7 @@ class TDEngineConnector(TSDBConnector):
         )
         df[mm_schemas.EventFieldType.LAST_REQUEST] = df[
             mm_schemas.EventFieldType.LAST_REQUEST
-        ].map(
-            lambda last_request: datetime.strptime(
-                last_request, "%Y-%m-%d %H:%M:%S.%f %z"
-            ).astimezone(tz=timezone.utc)
-        )
+        ].map(lambda last_request: parser.parse(last_request).astimezone(timezone.utc))
         return df
 
     def get_drift_status(
