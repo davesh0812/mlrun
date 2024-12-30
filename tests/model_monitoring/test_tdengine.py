@@ -508,12 +508,19 @@ class TestTDEngineConnector:
             }
         )
         connector._get_records = unittest.mock.Mock(return_value=df)
-        last_request = connector.get_last_request(endpoint_ids=["ep_1"])
-        assert last_request["last_request"][0] == parser.parse(
-            "2024-12-27 05:13:47.56 +00:00"
-        ).astimezone(datetime.timezone.utc)
+        last_request = connector.get_last_request(endpoint_ids=["ep_1", "ep_2"])
+        assert (
+            last_request["last_request"][0]
+            == parser.parse("2024-12-27 05:13:47.56 +00:00").astimezone(
+                datetime.timezone.utc
+            )
+            and last_request["endpoint_id"][0] == "ep_1"
+        )
 
-        last_request = connector.get_last_request(endpoint_ids=["ep_2"])
-        assert last_request["last_request"][0] == parser.parse(
-            "2024-12-27 05:13:47.56 +00:00"
-        ).astimezone(datetime.timezone.utc)
+        assert (
+            last_request["last_request"][1]
+            == parser.parse("2024-12-27 05:13:47 +00:00").astimezone(
+                datetime.timezone.utc
+            )
+            and last_request["endpoint_id"][1] == "ep_2"
+        )
