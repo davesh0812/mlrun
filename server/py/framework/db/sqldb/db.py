@@ -7112,7 +7112,7 @@ class SQLDB(DBInterface):
         latest_only: bool = False,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        order_by: str = None,
+        order_by: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpointList:
         model_endpoints: list[mlrun.common.schemas.ModelEndpoint] = []
         for mep_record in self._find_model_endpoints(

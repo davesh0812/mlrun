@@ -1252,7 +1252,7 @@ class DBInterface(ABC):
         latest_only: bool = False,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
-        order_by: str = None,
+        order_by: typing.Optional[str] = None,
     ) -> mlrun.common.schemas.ModelEndpointList:
         """
         List model endpoints by project and optional filters.
