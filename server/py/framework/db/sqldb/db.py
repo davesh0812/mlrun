@@ -5157,6 +5157,7 @@ class SQLDB(DBInterface):
         latest_only: bool,
         offset: int,
         limit: int,
+        order_by: str,
     ) -> sqlalchemy.orm.query.Query:
         """
         Query model_endpoints from the DB by the given filters.
@@ -5256,6 +5257,12 @@ class SQLDB(DBInterface):
         labels = label_set(labels)
         query = self._add_labels_filter(session, query, ModelEndpoint, labels)
         query = self._paginate_query(query, offset, limit)
+        try:
+            if order_by:
+                query = query.order_by(getattr(ModelEndpoint, order_by).asc())
+        except AttributeError as err:
+            logger.warning("Skipping order by", error=mlrun.errors.err_to_str(err))
+
         return query
 
     @staticmethod
@@ -7105,6 +7112,7 @@ class SQLDB(DBInterface):
         latest_only: bool = False,
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        order_by: str = None,
     ) -> mlrun.common.schemas.ModelEndpointList:
         model_endpoints: list[mlrun.common.schemas.ModelEndpoint] = []
         for mep_record in self._find_model_endpoints(
@@ -7123,6 +7131,7 @@ class SQLDB(DBInterface):
             latest_only=latest_only,
             offset=offset,
             limit=limit,
+            order_by=order_by,
         ):
             model_endpoints.append(
                 self._transform_model_endpoint_model_to_schema(mep_record)
