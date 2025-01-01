@@ -56,7 +56,7 @@ _MLRUN_MODEL_MONITORING_DB = "mysql+pymysql://root@mlrun-db:3306/mlrun_model_mon
 class TestModelEndpointsOperations(TestMLRunSystem):
     """Applying basic model endpoint CRUD operations through MLRun API"""
 
-    project_name = "mm-app-project-3"
+    project_name = "mm-app-project"
 
     def setup_method(self, method):
         super().setup_method(method)
