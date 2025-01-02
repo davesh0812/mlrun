@@ -41,8 +41,8 @@ import services.api.crud.runtimes.nuclio.helpers
 import services.api.runtime_handlers
 import services.api.utils.builder
 
-# Configmap objects on Kubernetes have 1Mb size limit
-SERVING_SPEC_MAX_LENGTH = 1048576
+# Configmap objects on Kubernetes have 10Mb size limit
+SERVING_SPEC_MAX_LENGTH = 10485760
 
 
 def deploy_nuclio_function(
@@ -411,14 +411,13 @@ def _configure_serving_spec(
             can_pass_via_cm
             and serving_spec_len >= mlrun.mlconf.httpdb.nuclio.serving_spec_env_cutoff
         ):
-            # TODO : limit limit the number of models to 5k - ML-8992
-            # if serving_spec_len >= SERVING_SPEC_MAX_LENGTH:
-            #     raise mlrun.errors.MLRunInvalidArgumentError(
-            #         f"The serving spec length exceeds the limit of {SERVING_SPEC_MAX_LENGTH}. "
-            #         + "Run `mlrun.runtimes.nuclio.serving.ServingRuntime._get_serving_spec`, delete a large field "
-            #         + "in the returned json, and check if the function runs successfully. "
-            #         + "Repeat as necessary to get the spec to an allowed size"
-            #     )
+            if serving_spec_len >= SERVING_SPEC_MAX_LENGTH:
+                raise mlrun.errors.MLRunInvalidArgumentError(
+                    f"The serving spec length exceeds the limit of {SERVING_SPEC_MAX_LENGTH}. "
+                    + "Run `mlrun.runtimes.nuclio.serving.ServingRuntime._get_serving_spec`, delete a large field "
+                    + "in the returned json, and check if the function runs successfully. "
+                    + "Repeat as necessary to get the spec to an allowed size"
+                )
             # Compress and encode the serving spec
             compressed_serving_spec = gzip.compress(serving_spec.encode("utf-8"))
             encoded_serving_spec = base64.b64encode(compressed_serving_spec).decode(
