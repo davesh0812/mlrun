@@ -585,9 +585,9 @@ class V3IOTSDBConnector(TSDBConnector):
             return f"endpoint_id=='{endpoint_id}'"
         elif isinstance(endpoint_id, list):
             if len(endpoint_id) > V3IO_MEPS_LIMIT:
-                logger.warning(
-                    "The number of endpoint ids exceeds the limit, "
-                    "we have to retrieve all the model endpoints from the db.",
+                logger.info(
+                    "The number of endpoint ids exceeds the v3io-engine filter-expression limit, "
+                    "retrieving all the model endpoints from the db.",
                     limit=V3IO_MEPS_LIMIT,
                     amount=len(endpoint_id),
                 )
