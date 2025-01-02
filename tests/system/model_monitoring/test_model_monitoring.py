@@ -364,6 +364,8 @@ class TestModelEndpointsOperations(TestMLRunSystem):
         assert len(endpoints_intersect) == number_of_endpoints
 
     def test_max_archive_list_endpoints(self):
+        # Validates the process of listing model endpoints with max archive limitation. In this test
+        # we create 5 model endpoints and then create another one. The oldest one should be deleted
         db = mlrun.get_run_db()
 
         number_of_endpoints = 5

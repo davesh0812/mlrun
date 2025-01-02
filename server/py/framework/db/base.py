@@ -1272,7 +1272,7 @@ class DBInterface(ABC):
         :param latest_only:     Whether to return only the latest model endpoint for each name.
         :param offset:          SQL query offset.
         :param limit:           SQL query limit.
-        :param order_by:        Name of column to order by it.
+        :param order_by:        Name of column to order by it (in ascending order).
         :return:                A list of model endpoints.
         """
         pass
