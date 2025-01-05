@@ -31,6 +31,7 @@ import storey.utils
 
 import mlrun
 import mlrun.common.schemas as schemas
+from mlrun.utils import logger
 
 from ..config import config
 from ..datastore import get_stream_pusher
@@ -754,7 +755,7 @@ class RouterStep(TaskStep):
         creation_strategy: schemas.ModelEndpointCreationStrategy = schemas.ModelEndpointCreationStrategy.INPLACE,
         **class_args,
     ):
-        """add child route step or class to the router
+        """add child route step or class to the router, if key exists it will be updated
 
         :param key:        unique name (and route path) for the child step
         :param route:      child step object (Task, ..)
@@ -779,6 +780,8 @@ class RouterStep(TaskStep):
                 f"Router cannot support more than {MAX_MODELS_PER_ROUTER} model endpoints. "
                 f"To add a new route, edit an existing one by passing the same key."
             )
+        if key in self.routes:
+            logger.info(f"Model {key} already exists, updating it.")
         if not route and not class_name and not handler:
             raise MLRunInvalidArgumentError("route or class_name must be specified")
         if not route:

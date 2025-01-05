@@ -17,6 +17,7 @@ import os
 import pathlib
 import random
 import time
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -809,6 +810,22 @@ def test_mock_invoke():
 
     # return config valued
     mlrun.mlconf.mock_nuclio_deployment = mock_nuclio_config
+
+
+def test_updating_model():
+    fn = mlrun.new_function("tests", kind="serving")
+    fn.add_model("my", ".", class_name=ModelTestingClass(multiplier=100))
+    server = fn.to_mock_server()
+    resp = server.test("/v2/models/my/infer", testdata)
+    assert resp["outputs"] == 5 * 100, f"wrong data response {resp}"
+
+    with patch("mlrun.utils.logger.info") as mock_warning:
+        # update the model
+        fn.add_model("my", ".", class_name=ModelTestingClass(multiplier=200))
+        mock_warning.assert_called_with("Model my already exists, updating it.")
+        server = fn.to_mock_server()
+        resp = server.test("/v2/models/my/infer", testdata)
+        assert resp["outputs"] == 5 * 200, f"wrong data response {resp}"
 
 
 def test_add_route_exceeds_max_models():
