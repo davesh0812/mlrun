@@ -1330,7 +1330,12 @@ class TestMonitoredServings(TestMLRunSystem):
             project=self.project_name
         )
         endpoints = endpoints_list.endpoints
-        assert len(endpoints) == 0
+        assert len(endpoints) == 1
+        endpoint = endpoints[0]
+        assert (
+            endpoint.status.monitoring_mode
+            == mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled
+        )
 
         for model_name, model_dict in self.test_models_tracking.items():
             self._deploy_model_serving(**model_dict, enable_tracking=True)
@@ -1342,15 +1347,15 @@ class TestMonitoredServings(TestMLRunSystem):
         assert len(endpoints) == 1
         endpoint = endpoints[0]
         assert (
-            endpoint["monitoring_mode"]
+            endpoint.status.monitoring_mode
             == mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
         )
 
         res_dict = self._test_endpoint(
-            model_name=endpoint[mm_constants.EventFieldType.MODEL].split(":")[0],
-            feature_set_uri=endpoint[mm_constants.EventFieldType.FEATURE_SET_URI],
+            model_name=endpoint.metadata.name,
+            feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
             model_dict=self.test_models_tracking[
-                endpoint[mm_constants.EventFieldType.MODEL].split(":")[0]
+                endpoint.metadata.name
             ],
         )
         assert res_dict[
@@ -1371,15 +1376,15 @@ class TestMonitoredServings(TestMLRunSystem):
         assert len(endpoints) == 1
         endpoint = endpoints[0]
         assert (
-            endpoint["monitoring_mode"]
+            endpoint.status.monitoring_mode
             == mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled
         )
 
         res_dict = self._test_endpoint(
-            model_name=endpoint[mm_constants.EventFieldType.MODEL].split(":")[0],
-            feature_set_uri=endpoint[mm_constants.EventFieldType.FEATURE_SET_URI],
+            model_name=endpoint.metadata.name,
+            feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
             model_dict=self.test_models_tracking[
-                endpoint[mm_constants.EventFieldType.MODEL].split(":")[0]
+                endpoint.metadata.name
             ],
         )
 
