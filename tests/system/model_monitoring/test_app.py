@@ -1354,9 +1354,7 @@ class TestMonitoredServings(TestMLRunSystem):
         res_dict = self._test_endpoint(
             model_name=endpoint.metadata.name,
             feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
-            model_dict=self.test_models_tracking[
-                endpoint.metadata.name
-            ],
+            model_dict=self.test_models_tracking[endpoint.metadata.name],
         )
         assert res_dict[
             "is_schema_saved"
@@ -1383,9 +1381,7 @@ class TestMonitoredServings(TestMLRunSystem):
         res_dict = self._test_endpoint(
             model_name=endpoint.metadata.name,
             feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
-            model_dict=self.test_models_tracking[
-                endpoint.metadata.name
-            ],
+            model_dict=self.test_models_tracking[endpoint.metadata.name],
         )
 
         assert res_dict[
