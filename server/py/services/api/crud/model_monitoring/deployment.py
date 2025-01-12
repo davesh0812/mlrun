@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import json
 import time
 import traceback
@@ -1294,7 +1293,12 @@ class MonitoringDeployment:
             return False
         return True
 
-    async def create_model_endpoints(self, function: dict, function_name: str):
+    async def create_model_endpoints(
+        self,
+        function: dict,
+        function_name: str,
+        background_tasks: fastapi.BackgroundTasks = None,
+    ):
         """
         Create model endpoints for the given function.
         1. Create model endpoint instructions list from the function graph.
@@ -1318,7 +1322,7 @@ class MonitoringDeployment:
                 HTTPStatus.BAD_REQUEST.value,
                 reason=f"Runtime error: {mlrun.errors.err_to_str(err)}",
             )
-        tasks: list[asyncio.Task] = []
+        tasks: list[mlrun.common.schemas.BackgroundTask] = []
         model_endpoints_instructions: list[
             tuple[
                 mlrun.common.schemas.ModelEndpoint,
@@ -1334,60 +1338,23 @@ class MonitoringDeployment:
                 mm_constants.EventFieldType.SAMPLING_PERCENTAGE, 100
             ),
         )  # model endpoint, creation strategy, model path
-        router_model_endpoints_instructions: list[
-            tuple[
-                mlrun.common.schemas.ModelEndpoint,
-                mm_constants.ModelEndpointCreationStrategy,
-                str,
-            ]
-        ] = []
         for (
             model_endpoint,
             creation_strategy,
             model_path,
         ) in model_endpoints_instructions:
-            if (
-                model_endpoint.metadata.endpoint_type
-                != mm_constants.EndpointType.ROUTER
-            ):
-                tasks.append(
-                    asyncio.create_task(
-                        framework.db.session.run_async_function_with_new_db_session(
-                            func=services.api.crud.ModelEndpoints().create_model_endpoint,
-                            model_endpoint=model_endpoint,
-                            creation_strategy=creation_strategy,
-                            model_path=model_path,
-                        )
-                    )
-                )
-            else:
-                router_model_endpoints_instructions.append(
-                    (model_endpoint, creation_strategy, model_path)
-                )
-
-        created_model_endpoint = await asyncio.gather(*tasks)
-        router_tasks: list[asyncio.Task] = []
-        for (
-            model_endpoint,
-            creation_strategy,
-            model_path,
-        ) in router_model_endpoints_instructions:
-            for mep in created_model_endpoint:
-                if mep.metadata.name in model_endpoint.spec.children:
-                    model_endpoint.spec.children_uids.append(mep.metadata.uid)
-            router_tasks.append(
-                asyncio.create_task(
-                    framework.db.session.run_async_function_with_new_db_session(
-                        func=services.api.crud.ModelEndpoints().create_model_endpoint,
-                        model_endpoint=model_endpoint,
-                        creation_strategy=creation_strategy,
-                        model_path=model_path,
-                    )
-                )
+            task = await run_in_threadpool(
+                framework.db.session.run_function_with_new_db_session,
+                MonitoringDeployment._create_model_endpoint_background_task,
+                background_tasks=background_tasks,
+                project_name=self.project,
+                model_endpoint=model_endpoint,
+                creation_strategy=creation_strategy,
+                model_path=model_path,
             )
-        created_model_endpoint.extend(await asyncio.gather(*router_tasks))
+            tasks.append(task)
 
-        return created_model_endpoint
+        return mlrun.common.schemas.BackgroundTaskList(background_tasks=tasks)
 
     def _extract_model_endpoints_from_function_graph(
         self,
@@ -1444,12 +1411,13 @@ class MonitoringDeployment:
     ]:
         model_endpoints_instructions = []
         routes_names = []
-
+        routes_uids = []
         for route in router_step.routes.values():
             if (
                 route.model_endpoint_creation_strategy
                 != mm_constants.ModelEndpointCreationStrategy.SKIP
             ):
+                uid = uuid.uuid4().hex
                 model_endpoints_instructions.append(
                     (
                         self._model_endpoint_draft(
@@ -1460,12 +1428,14 @@ class MonitoringDeployment:
                             function_tag=function_tag,
                             track_models=track_models,
                             sampling_percentage=sampling_percentage,
+                            uid=uid,
                         ),
                         route.model_endpoint_creation_strategy,
                         route.class_args.get("model_path", ""),
                     )
                 )
                 routes_names.append(route.name)
+                routes_uids.append(uid)
         if (
             router_step.model_endpoint_creation_strategy
             != mm_constants.ModelEndpointCreationStrategy.SKIP
@@ -1480,6 +1450,7 @@ class MonitoringDeployment:
                         function_tag=function_tag,
                         track_models=track_models,
                         children_names=routes_names,
+                        children_uids=routes_uids,
                         sampling_percentage=sampling_percentage,
                     ),
                     router_step.model_endpoint_creation_strategy,
@@ -1544,15 +1515,15 @@ class MonitoringDeployment:
         function_name: str,
         function_tag: str,
         track_models: bool,
+        uid: typing.Optional[str] = None,
         children_names: typing.Optional[list[str]] = None,
+        children_uids: typing.Optional[list[str]] = None,
         sampling_percentage: typing.Optional[float] = None,
     ) -> mlrun.common.schemas.ModelEndpoint:
         function_tag = function_tag or "latest"
         return mlrun.common.schemas.ModelEndpoint(
             metadata=mlrun.common.schemas.ModelEndpointMetadata(
-                project=self.project,
-                name=name,
-                endpoint_type=endpoint_type,
+                project=self.project, name=name, endpoint_type=endpoint_type, uid=uid
             ),
             spec=mlrun.common.schemas.ModelEndpointSpec(
                 function_name=function_name,
@@ -1560,6 +1531,7 @@ class MonitoringDeployment:
                 function_uid=f"{unversioned_tagged_object_uid_prefix}{function_tag}",  # TODO: remove after ML-8596
                 model_class=model_class,
                 children=children_names,
+                children_uids=children_uids,
             ),
             status=mlrun.common.schemas.ModelEndpointStatus(
                 monitoring_mode=mlrun.common.schemas.model_monitoring.ModelMonitoringMode.enabled
@@ -1567,6 +1539,30 @@ class MonitoringDeployment:
                 else mlrun.common.schemas.model_monitoring.ModelMonitoringMode.disabled,
                 sampling_percentage=sampling_percentage,
             ),
+        )
+
+    @staticmethod
+    def _create_model_endpoint_background_task(
+        db_session: sqlalchemy.orm.Session,
+        background_tasks: BackgroundTasks,
+        project_name: str,
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
+        creation_strategy: mm_constants.ModelEndpointCreationStrategy,
+        model_path: str,
+    ):
+        background_task_name = str(uuid.uuid4())
+        # create the background task for function deletion
+        return framework.utils.background_tasks.ProjectBackgroundTasksHandler().create_background_task(
+            db_session,
+            project_name,
+            background_tasks,
+            services.api.crud.ModelEndpoints().create_model_endpoint,
+            mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_creation,
+            background_task_name,
+            db_session,
+            model_endpoint,
+            creation_strategy,
+            model_path,
         )
 
 

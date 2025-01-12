@@ -1916,7 +1916,18 @@ class HTTPRunDB(RunDBInterface):
             logger.error(f"deploy nuclio - bad response:\n{resp.text}")
             raise ValueError("bad nuclio deploy response")
 
-        return resp.json()
+        response_json = resp.json()
+        data = response_json.get("data", {})
+        background_tasks = mlrun.common.schemas.BackgroundTaskList(
+            **response_json.get("background_tasks", {})
+        ).background_tasks
+        # logger.info(f"Creating model endpoints for {func.metadata.name}")
+        # for task in background_tasks:
+        #     task = self._wait_for_background_task_to_reach_terminal_state(
+        #         task.metadata.name, project=func.metadata.project
+        #     )
+        # logger.info(f"Finish creating {len(background_tasks)} model endpoints under {func.metadata.name}")
+        return data
 
     def get_nuclio_deploy_status(
         self,

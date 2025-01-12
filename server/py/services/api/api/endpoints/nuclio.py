@@ -13,10 +13,12 @@
 # limitations under the License.
 #
 import asyncio
+import http
 import traceback
 import typing
 from http import HTTPStatus
 
+import fastapi
 import semver
 import sqlalchemy.orm
 from fastapi import APIRouter, Depends, Header, Request, Response
@@ -25,6 +27,7 @@ from fastapi.concurrency import run_in_threadpool
 import mlrun.common.schemas
 import mlrun.common.schemas.model_monitoring.constants as mm_constants
 from mlrun.common.model_monitoring.helpers import parse_model_endpoint_store_prefix
+from mlrun.common.schemas.serving import DeployResponse
 from mlrun.config import config
 from mlrun.utils import logger
 from mlrun.utils.helpers import generate_object_uri
@@ -216,11 +219,28 @@ async def delete_api_gateway(
         return await client.delete_api_gateway(project_name=project, name=name)
 
 
-@router.post("/projects/{project}/nuclio/{name}/deploy")
+@router.post(
+    "/projects/{project}/nuclio/{name}/deploy",
+    response_model=DeployResponse,
+    responses={
+        http.HTTPStatus.OK.value: {
+            "description": "Successful deployment",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "data": {"key": "value"},
+                        "background_tasks": {"tasks": []},
+                    }
+                }
+            },
+        }
+    },
+)
 async def deploy_function(
     project: str,
     name: str,
     request: Request,
+    background_tasks: fastapi.BackgroundTasks,
     auth_info: mlrun.common.schemas.AuthInfo = Depends(deps.authenticate_request),
     db_session: sqlalchemy.orm.Session = Depends(deps.get_db_session),
     client_version: typing.Optional[str] = Header(
@@ -270,21 +290,21 @@ async def deploy_function(
         client_version,
         client_python_version,
     )
-    endpoints: list[mlrun.common.schemas.ModelEndpoint] = []
 
+    returned_background_tasks = mlrun.common.schemas.BackgroundTaskList(tasks=[])
     if fn.kind == mlrun.runtimes.RuntimeKinds.serving:
         monitoring_deployment = (
             services.api.crud.model_monitoring.deployment.MonitoringDeployment(
                 project=project
             )
         )
-        endpoints = await monitoring_deployment.create_model_endpoints(
-            function=fn, function_name=name
+        returned_background_tasks = await monitoring_deployment.create_model_endpoints(
+            function=fn, function_name=name, background_tasks=background_tasks
         )
-    return {
-        "data": fn.to_dict(),
-        "endpoints_list": mlrun.common.schemas.ModelEndpointList(endpoints=endpoints),
-    }
+    return DeployResponse(
+        data=fn.to_dict(),
+        background_tasks=returned_background_tasks,
+    )
 
 
 @router.get("/projects/{project}/nuclio/{name}/deploy")

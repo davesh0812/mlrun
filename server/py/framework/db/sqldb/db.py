@@ -7083,6 +7083,7 @@ class SQLDB(DBInterface):
         )
         current_time = datetime.now(timezone.utc)
         mep = ModelEndpoint(
+            uid=model_endpoint.metadata.uid if model_endpoint.metadata.uid else None,
             name=model_endpoint.metadata.name,
             project=model_endpoint.metadata.project,
             function_name=model_endpoint.spec.function_name,
