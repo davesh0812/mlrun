@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import asyncio
 import json
 import time
 import traceback
@@ -1297,7 +1297,6 @@ class MonitoringDeployment:
         self,
         function: dict,
         function_name: str,
-        background_tasks: fastapi.BackgroundTasks = None,
     ):
         """
         Create model endpoints for the given function.
@@ -1322,7 +1321,6 @@ class MonitoringDeployment:
                 HTTPStatus.BAD_REQUEST.value,
                 reason=f"Runtime error: {mlrun.errors.err_to_str(err)}",
             )
-        tasks: list[mlrun.common.schemas.BackgroundTask] = []
         model_endpoints_instructions: list[
             tuple[
                 mlrun.common.schemas.ModelEndpoint,
@@ -1338,23 +1336,24 @@ class MonitoringDeployment:
                 mm_constants.EventFieldType.SAMPLING_PERCENTAGE, 100
             ),
         )  # model endpoint, creation strategy, model path
+        tasks: list[asyncio.Task] = []
         for (
             model_endpoint,
             creation_strategy,
             model_path,
         ) in model_endpoints_instructions:
-            task = await run_in_threadpool(
-                framework.db.session.run_function_with_new_db_session,
-                MonitoringDeployment._create_model_endpoint_background_task,
-                background_tasks=background_tasks,
-                project_name=self.project,
-                model_endpoint=model_endpoint,
-                creation_strategy=creation_strategy,
-                model_path=model_path,
+            tasks.append(
+                asyncio.create_task(
+                    framework.db.session.run_async_function_with_new_db_session(
+                        func=services.api.crud.ModelEndpoints().create_model_endpoint,
+                        model_endpoint=model_endpoint,
+                        creation_strategy=creation_strategy,
+                        model_path=model_path,
+                    )
+                )
             )
-            tasks.append(task)
 
-        return mlrun.common.schemas.BackgroundTaskList(background_tasks=tasks)
+        return await asyncio.gather(*tasks)
 
     def _extract_model_endpoints_from_function_graph(
         self,
@@ -1545,10 +1544,9 @@ class MonitoringDeployment:
     def _create_model_endpoint_background_task(
         db_session: sqlalchemy.orm.Session,
         background_tasks: BackgroundTasks,
+        function_name: str,
+        function: dict,
         project_name: str,
-        model_endpoint: mlrun.common.schemas.ModelEndpoint,
-        creation_strategy: mm_constants.ModelEndpointCreationStrategy,
-        model_path: str,
     ):
         background_task_name = str(uuid.uuid4())
         # create the background task for function deletion
@@ -1556,13 +1554,12 @@ class MonitoringDeployment:
             db_session,
             project_name,
             background_tasks,
-            services.api.crud.ModelEndpoints().create_model_endpoint,
+            MonitoringDeployment(project=project_name).create_model_endpoints,
             mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_creation,
             background_task_name,
-            db_session,
-            model_endpoint,
-            creation_strategy,
-            model_path,
+            function_name,
+            function,
+            project_name,
         )
 
 

@@ -291,15 +291,15 @@ async def deploy_function(
         client_python_version,
     )
 
-    returned_background_tasks = mlrun.common.schemas.BackgroundTaskList(tasks=[])
+    returned_background_tasks = mlrun.common.schemas.BackgroundTask()
     if fn.kind == mlrun.runtimes.RuntimeKinds.serving:
-        monitoring_deployment = (
-            services.api.crud.model_monitoring.deployment.MonitoringDeployment(
-                project=project
-            )
-        )
-        returned_background_tasks = await monitoring_deployment.create_model_endpoints(
-            function=fn, function_name=name, background_tasks=background_tasks
+        returned_background_tasks = await run_in_threadpool(
+            framework.db.session.run_function_with_new_db_session,
+            services.api.crud.model_monitoring.deployment.MonitoringDeployment._create_model_endpoint_background_task,  # noqa
+            background_tasks=background_tasks,
+            project_name=project,
+            function_name=name,
+            function=fn,
         )
     return DeployResponse(
         data=fn.to_dict(),

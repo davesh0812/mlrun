@@ -14,9 +14,9 @@
 
 from pydantic.v1 import BaseModel
 
-from .background_task import BackgroundTaskList
+from .background_task import BackgroundTask
 
 
 class DeployResponse(BaseModel):
     data: dict
-    background_tasks: BackgroundTaskList
+    background_tasks: BackgroundTask
