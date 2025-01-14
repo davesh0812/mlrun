@@ -112,6 +112,7 @@ class GraphServer(ModelObj):
         function_name=None,
         function_tag=None,
         project=None,
+        model_endpoint_creation_task_name=None,
     ):
         self._graph = None
         self.graph: Union[RouterStep, RootFlowStep] = graph
@@ -137,6 +138,7 @@ class GraphServer(ModelObj):
         self.function_name = function_name
         self.function_tag = function_tag
         self.project = project
+        self.model_endpoint_creation_task_name = model_endpoint_creation_task_name
 
     def set_current_function(self, function):
         """set which child function this server is currently running on"""
@@ -332,6 +334,7 @@ def v2_serving_init(context, namespace=None):
     context.logger.info("Initializing server from spec")
     spec = mlrun.utils.get_serving_spec()
     server = GraphServer.from_dict(spec)
+
     if config.log_level.lower() == "debug":
         server.verbose = True
     if hasattr(context, "trigger"):
@@ -347,6 +350,31 @@ def v2_serving_init(context, namespace=None):
     kwargs = {}
     if hasattr(context, "is_mock"):
         kwargs["is_mock"] = context.is_mock
+    if server.model_endpoint_creation_task_name:
+        background_task = (
+            mlrun.get_run_db()._wait_for_background_task_to_reach_terminal_state(
+                server.model_endpoint_creation_task_name, server.project
+            )
+        )
+        if (
+            background_task.status.state
+            == mlrun.common.schemas.BackgroundTaskState.failed
+        ):
+            raise mlrun.errors.MLRunRuntimeError(
+                f"Failed to create model endpoint. Reason: {background_task.status.error}"
+            )
+        elif (
+            background_task.status.state
+            != mlrun.common.schemas.BackgroundTaskState.succeeded
+        ):
+            context.logger.info_with(
+                "Model endpoint creation task completed successfully",
+            )
+    else:
+        context.logger.info_with(
+            "Model endpoint creation task name not provided",
+        )
+
     server.init_states(
         context,
         namespace or get_caller_globals(),

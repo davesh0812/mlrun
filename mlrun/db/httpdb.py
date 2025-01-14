@@ -1917,16 +1917,28 @@ class HTTPRunDB(RunDBInterface):
             raise ValueError("bad nuclio deploy response")
 
         response_json = resp.json()
-        # data = response_json.get("data", {})
-        # background_tasks = mlrun.common.schemas.BackgroundTaskList(
-        #     **response_json.pop("background_tasks", {})
-        # ).background_tasks
-        # logger.info(f"Creating model endpoints for {func.metadata.name}")
-        # for task in background_tasks:
-        #     task = self._wait_for_background_task_to_reach_terminal_state(
-        #         task.metadata.name, project=func.metadata.project
-        #     )
-        # logger.info(f"Finish creating {len(background_tasks)} model endpoints under {func.metadata.name}")
+        background_task = mlrun.common.schemas.BackgroundTaskList(
+            **response_json.pop("background_tasks", {})
+        ).background_tasks[0]
+        logger.info(f"Creating model endpoints for {func.metadata.name}")
+        background_task = (
+            mlrun.get_run_db()._wait_for_background_task_to_reach_terminal_state(
+                background_task.metadata.name, func.metadata.project
+            )
+        )
+        if (
+            background_task.status.state
+            == mlrun.common.schemas.BackgroundTaskState.failed
+        ):
+            raise mlrun.errors.MLRunRuntimeError(
+                f"Failed to create model endpoint. Reason: {background_task.status.error}"
+            )
+        elif (
+            background_task.status.state
+            == mlrun.common.schemas.BackgroundTaskState.succeeded
+        ):
+            logger.info("Model endpoints created successfully")
+
         return response_json
 
     def get_nuclio_deploy_status(

@@ -278,6 +278,19 @@ async def deploy_function(
             auth_info,
         )
     )
+    returned_background_tasks = mlrun.common.schemas.BackgroundTaskList(
+        background_tasks=[]
+    )
+    if function.get("kind") == mlrun.runtimes.RuntimeKinds.serving:
+        returned_background_task = await run_in_threadpool(
+            framework.db.session.run_function_with_new_db_session,
+            services.api.crud.model_monitoring.deployment.MonitoringDeployment._create_model_endpoint_background_task,  # noqa
+            background_tasks=background_tasks,
+            project_name=project,
+            function_name=name,
+            function=function,
+        )
+        returned_background_tasks.background_tasks.append(returned_background_task)
 
     fn = await run_in_threadpool(
         _deploy_function,
@@ -289,18 +302,14 @@ async def deploy_function(
         data.get("builder_env"),
         client_version,
         client_python_version,
+        returned_background_tasks.background_tasks[0].metadata.name
+        if returned_background_tasks.background_tasks[0]
+        else None,
     )
 
-    returned_background_tasks = mlrun.common.schemas.BackgroundTask()
-    if fn.kind == mlrun.runtimes.RuntimeKinds.serving:
-        returned_background_tasks = await run_in_threadpool(
-            framework.db.session.run_function_with_new_db_session,
-            services.api.crud.model_monitoring.deployment.MonitoringDeployment._create_model_endpoint_background_task,  # noqa
-            background_tasks=background_tasks,
-            project_name=project,
-            function_name=name,
-            function=fn,
-        )
+    returned_background_tasks = mlrun.common.schemas.BackgroundTaskList(
+        background_tasks=[]
+    )
     return DeployResponse(
         data=fn.to_dict(),
         background_tasks=returned_background_tasks,
@@ -474,6 +483,7 @@ def _deploy_function(
     builder_env: dict,
     client_version: str,
     client_python_version: str,
+    model_endpoint_creation_task_name: str = None,
 ):
     fn = None
     try:
@@ -503,6 +513,7 @@ def _deploy_function(
 
         fn.pre_deploy_validation()
         fn.save(versioned=False)
+        fn.spec.model_endpoint_creation_task_name = model_endpoint_creation_task_name
 
         fn = _deploy_nuclio_runtime(
             auth_info,
