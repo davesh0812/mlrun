@@ -356,6 +356,10 @@ def v2_serving_init(context, namespace=None):
                 server.model_endpoint_creation_task_name, server.project
             )
         )
+        context.logger.info_with(
+            "Checking model endpoint creation task status",
+            task_name=server.model_endpoint_creation_task_name,
+        )
         if (
             background_task.status.state
             == mlrun.common.schemas.BackgroundTaskState.failed
@@ -370,6 +374,7 @@ def v2_serving_init(context, namespace=None):
             context.logger.info_with(
                 "Model endpoint creation task completed successfully",
             )
+
     else:
         context.logger.info_with(
             "Model endpoint creation task name not provided",

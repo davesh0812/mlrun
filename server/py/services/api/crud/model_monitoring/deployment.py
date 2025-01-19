@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import asyncio
 import json
 import time
 import traceback
 import typing
 import uuid
+from asyncio import Semaphore
 from http import HTTPStatus
 from pathlib import Path
 
@@ -1293,10 +1293,12 @@ class MonitoringDeployment:
             return False
         return True
 
+    @staticmethod
     async def create_model_endpoints(
-        self,
         function: dict,
         function_name: str,
+        project: str,
+        db_session: sqlalchemy.orm.Session,
     ):
         """
         Create model endpoints for the given function.
@@ -1308,11 +1310,13 @@ class MonitoringDeployment:
 
         :param function:        The function object.
         :param function_name:   The name of the function.
+        :param project:         The project name.
         """
+        logger.info("Run BG", project=project, function=function_name)
         try:
             function = mlrun.new_function(
                 runtime=function,
-                project=self.project,
+                project=project,
                 name=function_name,
             )
         except Exception as err:
@@ -1327,7 +1331,9 @@ class MonitoringDeployment:
                 mm_constants.ModelEndpointCreationStrategy,
                 str,
             ]
-        ] = self._extract_model_endpoints_from_function_graph(
+        ] = MonitoringDeployment(
+            project=project
+        )._extract_model_endpoints_from_function_graph(
             function_name=function.metadata.name,
             function_tag=function.metadata.tag,
             track_models=function.spec.track_models,
@@ -1336,24 +1342,39 @@ class MonitoringDeployment:
                 mm_constants.EventFieldType.SAMPLING_PERCENTAGE, 100
             ),
         )  # model endpoint, creation strategy, model path
-        tasks: list[asyncio.Task] = []
+        # semaphore = Semaphore(50)  # Limit concurrent tasks
+        # tasks = [
+        #     MonitoringDeployment._create_model_endpoint_limited(
+        #         semaphore, model_endpoint, creation_strategy, model_path
+        #     )
+        #     for model_endpoint, creation_strategy, model_path in model_endpoints_instructions
+        # ]
         for (
             model_endpoint,
             creation_strategy,
             model_path,
         ) in model_endpoints_instructions:
-            tasks.append(
-                asyncio.create_task(
-                    framework.db.session.run_async_function_with_new_db_session(
-                        func=services.api.crud.ModelEndpoints().create_model_endpoint,
-                        model_endpoint=model_endpoint,
-                        creation_strategy=creation_strategy,
-                        model_path=model_path,
-                    )
-                )
+            await services.api.crud.ModelEndpoints().create_model_endpoint(
+                db_session, model_endpoint, creation_strategy, model_path
             )
 
-        return await asyncio.gather(*tasks)
+        # return await asyncio.gather(*tasks)
+
+    @staticmethod
+    async def _create_model_endpoint_limited(
+        semaphore: Semaphore,
+        model_endpoint,
+        creation_strategy,
+        model_path,
+    ):
+        async with semaphore:
+            result = await framework.db.session.run_async_function_with_new_db_session(
+                func=services.api.crud.ModelEndpoints().create_model_endpoint,
+                model_endpoint=model_endpoint,
+                creation_strategy=creation_strategy,
+                model_path=model_path,
+            )
+            return result
 
     def _extract_model_endpoints_from_function_graph(
         self,
@@ -1554,12 +1575,13 @@ class MonitoringDeployment:
             db_session,
             project_name,
             background_tasks,
-            MonitoringDeployment(project=project_name).create_model_endpoints,
+            MonitoringDeployment.create_model_endpoints,
             mlrun.mlconf.background_tasks.default_timeouts.operations.model_endpoint_creation,
             background_task_name,
-            function_name,
             function,
+            function_name,
             project_name,
+            db_session,
         )
 
 

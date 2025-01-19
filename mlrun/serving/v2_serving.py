@@ -118,6 +118,7 @@ class V2ModelServer(StepToDict):
         self.model_endpoint = None
         self.shard_by_endpoint = shard_by_endpoint
         self._model_logger = None
+        self.initialized = False
 
     def _load_and_update_state(self):
         try:
@@ -139,28 +140,33 @@ class V2ModelServer(StepToDict):
             else:
                 self._load_and_update_state()
 
+    def _lazy_init(self):
         server: mlrun.serving.GraphServer = getattr(
             self.context, "_server", None
         ) or getattr(self.context, "server", None)
         if not server:
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
-
         if not self.context.is_mock and not self.model_spec:
             self.get_model()
         if not self.context.is_mock or self.context.monitoring_mock:
-            self.model_endpoint = mlrun.get_run_db().get_model_endpoint(
-                project=server.project,
-                name=self.name,
-                function_name=server.function_name,
-                function_tag=server.function_tag or "latest",
+            self.model_endpoint_uid = (
+                mlrun.get_run_db()
+                .get_model_endpoint(
+                    project=server.project,
+                    name=self.name,
+                    function_name=server.function_name,
+                    function_tag=server.function_tag or "latest",
+                    tsdb_metrics=False,
+                )
+                .metadata.uid
             )
-            self.model_endpoint_uid = self.model_endpoint.metadata.uid
         self._model_logger = (
             _ModelLogPusher(self, self.context)
-            if self.context and self.context.stream.enabled
+            if self.context and self.context.stream.enabled and self.model_endpoint_uid
             else None
         )
+        self.initialized = True
 
     def get_param(self, key: str, default=None):
         """get param by key (specified in the model or the function)"""
@@ -238,6 +244,8 @@ class V2ModelServer(StepToDict):
 
     def do_event(self, event, *args, **kwargs):
         """main model event handler method"""
+        if not self.initialized:
+            self._lazy_init()
         start = now_date()
         original_body = event.body
         event_body = _extract_input_data(self._input_path, event.body)

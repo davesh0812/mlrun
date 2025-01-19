@@ -7072,7 +7072,7 @@ class SQLDB(DBInterface):
         self,
         session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+    ) -> str:
         if not model_endpoint.metadata.name or not model_endpoint.metadata.project:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 "Model endpoint name and project must be provided"
@@ -7101,7 +7101,15 @@ class SQLDB(DBInterface):
 
         update_labels(mep, model_endpoint.metadata.labels)
         mep.struct = model_endpoint.flat_dict()
+        logger.debug(
+            "Storing Model Endpoint Before upsert",
+            metadata=model_endpoint.metadata,
+        )
         self._upsert(session, [mep])
+        logger.debug(
+            "Storing Model Endpoint After upsert",
+            metadata=model_endpoint.metadata,
+        )
         self.tag_objects_v2(
             session,
             [mep],
@@ -7109,15 +7117,20 @@ class SQLDB(DBInterface):
             mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
             obj_name_attribute=["name", "function_name", "function_tag"],
         )
-        mep_record = self._get_model_endpoint(
-            session,
-            model_endpoint.metadata.project,
-            model_endpoint.metadata.name,
-            function_name=model_endpoint.spec.function_name,
-            function_tag=model_endpoint.spec.function_tag
-            or mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
+        logger.debug(
+            "Storing Model Endpoint Enddd",
+            metadata=model_endpoint.metadata,
         )
-        return self._transform_model_endpoint_model_to_schema(mep_record)
+        # mep_record = self._get_model_endpoint(
+        #     session,
+        #     model_endpoint.metadata.project,
+        #     model_endpoint.metadata.name,
+        #     function_name=model_endpoint.spec.function_name,
+        #     function_tag=model_endpoint.spec.function_tag
+        #     or mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
+        # )
+        # return self._transform_model_endpoint_model_to_schema(mep_record)
+        return mep.uid
 
     def get_model_endpoint(
         self,
@@ -7146,7 +7159,7 @@ class SQLDB(DBInterface):
         function_name: Optional[str] = None,
         function_tag: typing.Optional[str] = None,
         uid: typing.Optional[str] = None,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+    ) -> str:
         mep_record = self._get_model_endpoint(
             session, project, name, function_name, function_tag, uid
         )
@@ -7165,7 +7178,7 @@ class SQLDB(DBInterface):
             mep_record.struct = struct
             mep_record.updated = updated
             self._upsert(session, [mep_record])
-            return self._transform_model_endpoint_model_to_schema(mep_record)
+            return mep_record.uid
         else:
             raise mlrun.errors.MLRunNotFoundError(
                 f"Model Endpoint not found in project {project} with name {name} under function {function_name}"
