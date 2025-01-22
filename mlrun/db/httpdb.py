@@ -763,7 +763,6 @@ class HTTPRunDB(RunDBInterface):
         :returns: :py:class:`~mlrun.common.schemas.BackgroundTask`.
         """
         project = project or config.default_project
-
         response = self.api_call(
             "POST",
             path=f"projects/{project}/runs/{uid}/push-notifications",
@@ -906,6 +905,8 @@ class HTTPRunDB(RunDBInterface):
         start_time_to: Optional[datetime] = None,
         last_update_time_from: Optional[datetime] = None,
         last_update_time_to: Optional[datetime] = None,
+        end_time_from: Optional[datetime] = None,
+        end_time_to: Optional[datetime] = None,
         partition_by: Optional[
             Union[mlrun.common.schemas.RunPartitionByField, str]
         ] = None,
@@ -952,6 +953,8 @@ class HTTPRunDB(RunDBInterface):
         :param last_update_time_from: Filter by run last update time in ``(last_update_time_from,
             last_update_time_to)``.
         :param last_update_time_to: Filter by run last update time in ``(last_update_time_from, last_update_time_to)``.
+        :param end_time_from: Filter by run end time in ``[end_time_from, end_time_to]``.
+        :param end_time_to: Filter by run end time in ``[end_time_from, end_time_to]``.
         :param partition_by: Field to group results by. When `partition_by` is specified, the `partition_sort_by`
             parameter must be provided as well.
         :param rows_per_partition: How many top rows (per sorting defined by `partition_sort_by` and `partition_order`)
@@ -977,6 +980,8 @@ class HTTPRunDB(RunDBInterface):
             start_time_to=start_time_to,
             last_update_time_from=last_update_time_from,
             last_update_time_to=last_update_time_to,
+            end_time_from=end_time_from,
+            end_time_to=end_time_to,
             partition_by=partition_by,
             rows_per_partition=rows_per_partition,
             partition_sort_by=partition_sort_by,
@@ -5045,6 +5050,27 @@ class HTTPRunDB(RunDBInterface):
             **kwargs,
         )
 
+    def get_alert_activation(
+        self,
+        project,
+        activation_id,
+    ) -> mlrun.common.schemas.AlertActivation:
+        """
+        Retrieve the alert activation by id
+
+        :param project: Project name for which the summary belongs.
+        :param activation_id: alert activation id.
+        :returns: alert activation object.
+        """
+        project = project or config.default_project
+
+        error = "get alert activation"
+        path = f"projects/{project}/alert-activations/{activation_id}"
+
+        response = self.api_call("GET", path, error)
+
+        return mlrun.common.schemas.AlertActivation(**response.json())
+
     def get_project_summary(
         self, project: Optional[str] = None
     ) -> mlrun.common.schemas.ProjectSummary:
@@ -5229,6 +5255,8 @@ class HTTPRunDB(RunDBInterface):
         start_time_to: Optional[datetime] = None,
         last_update_time_from: Optional[datetime] = None,
         last_update_time_to: Optional[datetime] = None,
+        end_time_from: Optional[datetime] = None,
+        end_time_to: Optional[datetime] = None,
         partition_by: Optional[
             Union[mlrun.common.schemas.RunPartitionByField, str]
         ] = None,
@@ -5280,6 +5308,8 @@ class HTTPRunDB(RunDBInterface):
             and not start_time_to
             and not last_update_time_from
             and not last_update_time_to
+            and not end_time_from
+            and not end_time_to
             and not partition_by
             and not partition_sort_by
             and not iter
@@ -5304,6 +5334,8 @@ class HTTPRunDB(RunDBInterface):
             "start_time_to": datetime_to_iso(start_time_to),
             "last_update_time_from": datetime_to_iso(last_update_time_from),
             "last_update_time_to": datetime_to_iso(last_update_time_to),
+            "end_time_from": datetime_to_iso(end_time_from),
+            "end_time_to": datetime_to_iso(end_time_to),
             "with-notifications": with_notifications,
             "page": page,
             "page-size": page_size,

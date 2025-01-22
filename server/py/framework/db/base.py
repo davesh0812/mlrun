@@ -125,6 +125,8 @@ class DBInterface(ABC):
         start_time_to: Optional[datetime.datetime] = None,
         last_update_time_from: Optional[datetime.datetime] = None,
         last_update_time_to: Optional[datetime.datetime] = None,
+        end_time_from: Optional[datetime.datetime] = None,
+        end_time_to: Optional[datetime.datetime] = None,
         partition_by: mlrun.common.schemas.RunPartitionByField = None,
         rows_per_partition: int = 1,
         partition_sort_by: mlrun.common.schemas.SortField = None,
@@ -895,7 +897,10 @@ class DBInterface(ABC):
 
     @abstractmethod
     def list_alerts(
-        self, session, project: typing.Optional[typing.Union[str, list[str]]] = None
+        self,
+        session,
+        project: typing.Optional[typing.Union[str, list[str]]] = None,
+        exclude_updated: bool = False,
     ) -> list[mlrun.common.schemas.AlertConfig]:
         pass
 
@@ -976,6 +981,7 @@ class DBInterface(ABC):
         count: typing.Optional[int] = None,
         active: bool = False,
         obj: typing.Optional[dict] = None,
+        alert_id: typing.Optional[int] = None,
     ):
         pass
 
@@ -1039,6 +1045,14 @@ class DBInterface(ABC):
         offset: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
     ) -> list[mlrun.common.schemas.AlertActivation]:
+        pass
+
+    @abstractmethod
+    def get_alert_activation(
+        self,
+        session,
+        activation_id: int,
+    ) -> mlrun.common.schemas.AlertActivation:
         pass
 
     @abstractmethod
