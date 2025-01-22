@@ -49,7 +49,6 @@ from mlrun.runtimes.pod import KubeResource, KubeResourceSpec
 from mlrun.runtimes.utils import get_item_name, log_std
 from mlrun.utils import get_in, logger, update_in
 from mlrun_pipelines.common.ops import deploy_op
-from tests.system.projects.assets.kflow import project
 
 
 def validate_nuclio_version_compatibility(*min_versions):
@@ -606,7 +605,6 @@ class RemoteRuntime(KubeResource):
                 **data.pop("background_tasks", {})
             ).background_tasks[0],
             wait_for_completion=False,
-            project=self.metadata.project,
         )
 
         return self._enrich_command_from_status()
@@ -1302,11 +1300,11 @@ class RemoteRuntime(KubeResource):
     ):
         if wait_for_completion:
             background_task = db._wait_for_background_task_to_reach_terminal_state(
-                background_task.metadata.name, project=self.metadata.project
+                name=background_task.metadata.name, project=self.metadata.project
             )
         else:
             background_task = db.get_project_background_task(
-                project, background_task.metadata.name
+                project=self.metadata.project, name=background_task.metadata.name
             )
         if (
             background_task.status.state
