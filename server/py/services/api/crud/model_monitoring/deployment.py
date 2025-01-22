@@ -1320,7 +1320,7 @@ class MonitoringDeployment:
         :param project:         The project name.
         """
         logger.info(
-            "[David] Start Running BGT for model endpoint creation",
+            "Start Running BGT for model endpoint creation",
             project=project,
             function=function_name,
         )
@@ -1363,25 +1363,10 @@ class MonitoringDeployment:
                     semaphore, batch, project
                 )
             )
-        #
-        # tasks = [
-        #     MonitoringDeployment._create_model_endpoint_limited(
-        #         semaphore, model_endpoint, creation_strategy, model_path
-        #     )
-        #     for model_endpoint, creation_strategy, model_path in model_endpoints_instructions
-        # ]
-        # for (
-        #     model_endpoint,
-        #     creation_strategy,
-        #     model_path,
-        # ) in model_endpoints_instructions:
-        #     await services.api.crud.ModelEndpoints().create_model_endpoint(
-        #         db_session, model_endpoint, creation_strategy, model_path
-        #     )
 
         await asyncio.gather(*tasks)
         logger.info(
-            "[David] Finish Running BGT for model endpoint creation",
+            "Finish Running BGT for model endpoint creation",
             project=project,
             function=function_name,
         )
@@ -1600,7 +1585,6 @@ class MonitoringDeployment:
         project_name: str,
     ):
         background_task_name = str(uuid.uuid4())
-        # create the background task for function deletion
         return framework.utils.background_tasks.ProjectBackgroundTasksHandler().create_background_task(
             db_session,
             project_name,

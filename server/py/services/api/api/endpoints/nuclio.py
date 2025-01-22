@@ -17,6 +17,7 @@ import http
 import traceback
 import typing
 from http import HTTPStatus
+from typing import Optional
 
 import fastapi
 import semver
@@ -485,7 +486,7 @@ def _deploy_function(
     builder_env: dict,
     client_version: str,
     client_python_version: str,
-    model_endpoint_creation_task_name: str = None,
+    model_endpoint_creation_task_name: Optional[str] = None,
 ):
     fn = None
     try:
