@@ -7254,7 +7254,7 @@ class SQLDB(DBInterface):
             )
 
     def _update_mep_record(
-        self, mep_record: ModelEndpoint, attributes: dict, update: datetime
+        self, mep_record: ModelEndpoint, attributes: dict, updated: datetime
     ) -> ModelEndpoint:
         attributes, schema_attr, labels = self._split_mep_update_attr(attributes)
         struct = mep_record.struct

@@ -224,7 +224,6 @@ class ModelEndpoints:
         ],
         project: str,
     ) -> None:
-
         # extra improvement to list all the relevant meps before - can be relevant to inplace and to the deletion
         # extra improvement to upsert all feature sets together
         # batch json creation
@@ -244,6 +243,7 @@ class ModelEndpoints:
                 model_endpoint=model_endpoint,
                 creation_strategy=creation_strategy,
                 model_path=model_path,
+                upsert=False,
             )
             if method == "create":
                 model_endpoints_dict.get(method).append(model_endpoint)

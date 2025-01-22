@@ -604,7 +604,7 @@ class RemoteRuntime(KubeResource):
             background_task=mlrun.common.schemas.BackgroundTaskList(
                 **data.pop("background_tasks", {})
             ).background_tasks[0],
-            wait_for_completion=False,
+            wait_for_completion=True,  # todo change to false
         )
 
         return self._enrich_command_from_status()
@@ -1312,7 +1312,7 @@ class RemoteRuntime(KubeResource):
                 f"Model endpoint creation task completed with state {background_task.status.state}"
             )
         else:
-            logger.info(
+            logger.warning(
                 f"Model endpoint creation task is still running with state {background_task.status.state}"
                 f"You can use the serving function, but it won't be monitored for the next few minutes"
             )
