@@ -99,6 +99,7 @@ async def create_model_endpoint(
         db_session=db_session,
         model_endpoint=model_endpoint,
         creation_strategy=creation_strategy,
+        upsert=True,
     )
 
 

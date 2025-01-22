@@ -65,8 +65,11 @@ class ModelEndpoints:
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         creation_strategy: mlrun.common.schemas.ModelEndpointCreationStrategy,
         model_path: Optional[str] = None,
-        current_function: Optional[dict] = None,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+        upsert: bool = True,
+    ) -> typing.Union[
+        mlrun.common.schemas.ModelEndpoint,
+        tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict],
+    ]:
         """
         Creates model endpoint record in DB. The DB store target is defined either by a provided connection string
         or by the default store target that is defined in MLRun configuration.
@@ -84,6 +87,8 @@ class ModelEndpoints:
             1. If model endpoints with the same name exist, preserve them.
             2. Create a new model endpoint with the same name and set it to `latest`.
         :param model_path:             The path to the model artifact.
+        :param upsert:                 If True, will execute the creation/deletion/updating
+                                       of the model endpoint in the DB.
 
         :return:    The created `ModelEndpoint` object or `None` if the creation strategy is `SKIP`.
         :raise:     MLRunInvalidArgumentError if the creation strategy is not valid
@@ -153,29 +158,47 @@ class ModelEndpoints:
             creation_strategy
             == mlrun.common.schemas.ModelEndpointCreationStrategy.INPLACE
         ):
-            model_endpoint = await self._inplace_model_endpoint(
+            (
+                model_endpoint,
+                method,
+                uid_to_delete,
+                attributes,
+            ) = await self._inplace_model_endpoint(
                 db_session=db_session,
                 model_endpoint=model_endpoint,
                 model_obj=model_obj,
+                upsert=upsert,
             )
         elif (
             creation_strategy
             == mlrun.common.schemas.ModelEndpointCreationStrategy.OVERWRITE
         ):
-            model_endpoint = await self._overwrite_model_endpoint(
+            (
+                model_endpoint,
+                method,
+                uid_to_delete,
+                attributes,
+            ) = await self._overwrite_model_endpoint(
                 db_session=db_session,
                 model_endpoint=model_endpoint,
                 model_obj=model_obj,
+                upsert=upsert,
             )
         elif (
             creation_strategy
             == mlrun.common.schemas.ModelEndpointCreationStrategy.ARCHIVE
         ):
-            model_endpoint = await self._archive_model_endpoint(
+            (
+                model_endpoint,
+                method,
+                uid_to_delete,
+                attributes,
+            ) = await self._archive_model_endpoint(
                 db_session=db_session,
                 model_endpoint=model_endpoint,
                 model_obj=model_obj,
                 delete_old=True,
+                upsert=upsert,
             )
         else:
             raise mlrun.errors.MLRunInvalidArgumentError(
@@ -185,15 +208,87 @@ class ModelEndpoints:
         # If none of the above was supplied, feature names will be assigned on first contact with the model monitoring
         # system
         logger.info("Model endpoint created", endpoint_id=model_endpoint.metadata.uid)
+        if upsert:
+            return model_endpoint
+        return model_endpoint, method, uid_to_delete, attributes
 
-        return model_endpoint
+    async def create_model_endpoints(
+        self,
+        db_session: sqlalchemy.orm.Session,
+        model_endpoints_instructions: list[
+            tuple[
+                mlrun.common.schemas.ModelEndpoint,
+                mm_constants.ModelEndpointCreationStrategy,
+                str,
+            ]
+        ],
+        project: str,
+    ) -> None:
+
+        # extra improvement to list all the relevant meps before - can be relevant to inplace and to the deletion
+        # extra improvement to upsert all feature sets together
+        # batch json creation
+        model_endpoints_dict = {"create": [], "update": {}, "delete": []}
+        for (
+            model_endpoint,
+            creation_strategy,
+            model_path,
+        ) in model_endpoints_instructions:
+            (
+                model_endpoint,
+                method,
+                uid_to_delete,
+                attributes,
+            ) = await self.create_model_endpoint(
+                db_session=db_session,
+                model_endpoint=model_endpoint,
+                creation_strategy=creation_strategy,
+                model_path=model_path,
+            )
+            if method == "create":
+                model_endpoints_dict.get(method).append(model_endpoint)
+            elif method == "update":
+                model_endpoints_dict.get(method)[model_endpoint.metadata.uid] = (
+                    attributes
+                )
+            model_endpoints_dict.get("delete").extend(uid_to_delete)
+
+        if model_endpoints_dict.get("create"):
+            await run_in_threadpool(
+                framework.utils.singletons.db.get_db().store_model_endpoints,
+                session=db_session,
+                project=project,
+                model_endpoints=model_endpoints_dict.get("create"),
+            )
+        if model_endpoints_dict.get("update"):
+            await run_in_threadpool(
+                framework.utils.singletons.db.get_db().update_model_endpoints,
+                session=db_session,
+                project=project,
+                attributes=model_endpoints_dict.get("update"),
+            )
+
+        if model_endpoints_dict.get("delete"):
+            # delete old versions
+            await run_in_threadpool(
+                framework.utils.singletons.db.get_db().delete_model_endpoints,
+                session=db_session,
+                project=project,
+                uids=model_endpoints_dict.get("delete"),
+            )
+            await run_in_threadpool(
+                self._delete_model_endpoint_monitoring_infra,
+                uids=model_endpoints_dict.get("delete"),
+                project=project,
+            )
 
     async def _inplace_model_endpoint(
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+        upsert: bool = True,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
         try:
             logger.info("Getting model endpoint from db")
             exist_model_endpoint = await run_in_threadpool(
@@ -211,7 +306,7 @@ class ModelEndpoints:
             # there is no model endpoint with the same name
             # create a new model endpoint using the same logic as archive
             return await self._archive_model_endpoint(
-                db_session=db_session, model_endpoint=model_endpoint
+                db_session=db_session, model_endpoint=model_endpoint, upsert=upsert
             )
 
         model_endpoint.metadata.uid = exist_model_endpoint.metadata.uid
@@ -256,24 +351,27 @@ class ModelEndpoints:
             attributes[mlrun.common.schemas.ModelEndpointSchema.LABEL_NAMES] = (
                 model_endpoint.spec.label_names
             )
+        if upsert:
+            await run_in_threadpool(
+                framework.utils.singletons.db.get_db().update_model_endpoint,
+                session=db_session,
+                project=exist_model_endpoint.metadata.project,
+                name=exist_model_endpoint.metadata.name,
+                attributes=attributes,
+                uid=exist_model_endpoint.metadata.uid,
+            )
+            return model_endpoint, "", [], {}
 
-        await run_in_threadpool(
-            framework.utils.singletons.db.get_db().update_model_endpoint,
-            session=db_session,
-            project=exist_model_endpoint.metadata.project,
-            name=exist_model_endpoint.metadata.name,
-            attributes=attributes,
-            uid=exist_model_endpoint.metadata.uid,
-        )
-
-        return model_endpoint
+        else:
+            return model_endpoint, "update", [], attributes
 
     async def _overwrite_model_endpoint(
         self,
         db_session: sqlalchemy.orm.Session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+        upsert: bool = True,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
         old_uids = [
             model_endpoint.metadata.uid
             for model_endpoint in (
@@ -289,8 +387,10 @@ class ModelEndpoints:
             ).endpoints
         ]
 
-        await self._archive_model_endpoint(db_session, model_endpoint, model_obj)
-        if old_uids:
+        model_endpoint, method, _, _ = await self._archive_model_endpoint(
+            db_session, model_endpoint, model_obj, upsert=upsert
+        )
+        if old_uids and upsert:
             # delete old versions
             await run_in_threadpool(
                 framework.utils.singletons.db.get_db().delete_model_endpoints,
@@ -303,8 +403,9 @@ class ModelEndpoints:
                 uids=old_uids,
                 project=model_endpoint.metadata.project,
             )
-
-        return model_endpoint
+            return model_endpoint, "", [], {}
+        else:
+            return model_endpoint, method, old_uids, {}
 
     async def _archive_model_endpoint(
         self,
@@ -312,7 +413,8 @@ class ModelEndpoints:
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
         model_obj: Optional[mlrun.artifacts.ModelArtifact] = None,
         delete_old: bool = False,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+        upsert: bool = True,
+    ) -> tuple[mlrun.common.schemas.ModelEndpoint, str, list[str], dict]:
         uid_to_delete = []
         if delete_old:
             old_uids = [
@@ -351,23 +453,26 @@ class ModelEndpoints:
             )
             model_endpoint.spec.monitoring_feature_set_uri = monitoring_feature_set_uri
             logger.info("Finish enable monitoring on model endpoint")
-        if uid_to_delete:
-            # delete old versions
-            await run_in_threadpool(
-                framework.utils.singletons.db.get_db().delete_model_endpoints,
-                session=db_session,
-                project=model_endpoint.metadata.project,
-                uids=uid_to_delete,
+        if upsert:
+            if uid_to_delete:
+                # delete old versions
+                await run_in_threadpool(
+                    framework.utils.singletons.db.get_db().delete_model_endpoints,
+                    session=db_session,
+                    project=model_endpoint.metadata.project,
+                    uids=uid_to_delete,
+                )
+                await run_in_threadpool(
+                    self._delete_model_endpoint_monitoring_infra,
+                    uids=uid_to_delete,
+                    project=model_endpoint.metadata.project,
+                )
+            await self._create_new_model_endpoint(
+                db_session=db_session, model_endpoint=model_endpoint
             )
-            await run_in_threadpool(
-                self._delete_model_endpoint_monitoring_infra,
-                uids=uid_to_delete,
-                project=model_endpoint.metadata.project,
-            )
-        await self._create_new_model_endpoint(
-            db_session=db_session, model_endpoint=model_endpoint
-        )
-        return model_endpoint
+            return model_endpoint, "", [], {}
+        else:
+            return model_endpoint, "create", uid_to_delete, {}
 
     @staticmethod
     async def _create_new_model_endpoint(

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import json
 import time
 import traceback
@@ -1318,7 +1319,11 @@ class MonitoringDeployment:
         :param function_name:   The name of the function.
         :param project:         The project name.
         """
-        logger.info("Run BG", project=project, function=function_name)
+        logger.info(
+            "[David] Start Running BGT for model endpoint creation",
+            project=project,
+            function=function_name,
+        )
         try:
             function = mlrun.new_function(
                 runtime=function,
@@ -1348,37 +1353,56 @@ class MonitoringDeployment:
                 mm_constants.EventFieldType.SAMPLING_PERCENTAGE, 100
             ),
         )  # model endpoint, creation strategy, model path
-        # semaphore = Semaphore(50)  # Limit concurrent tasks
+        semaphore = Semaphore(50)  # Limit concurrent tasks
+        tasks = []
+        batchsize = 500
+        for i in range(0, len(model_endpoints_instructions), batchsize):
+            batch = model_endpoints_instructions[i : i + batchsize]
+            tasks.append(
+                MonitoringDeployment._create_model_endpoint_limited(
+                    semaphore, batch, project
+                )
+            )
+        #
         # tasks = [
         #     MonitoringDeployment._create_model_endpoint_limited(
         #         semaphore, model_endpoint, creation_strategy, model_path
         #     )
         #     for model_endpoint, creation_strategy, model_path in model_endpoints_instructions
         # ]
-        for (
-            model_endpoint,
-            creation_strategy,
-            model_path,
-        ) in model_endpoints_instructions:
-            await services.api.crud.ModelEndpoints().create_model_endpoint(
-                db_session, model_endpoint, creation_strategy, model_path
-            )
+        # for (
+        #     model_endpoint,
+        #     creation_strategy,
+        #     model_path,
+        # ) in model_endpoints_instructions:
+        #     await services.api.crud.ModelEndpoints().create_model_endpoint(
+        #         db_session, model_endpoint, creation_strategy, model_path
+        #     )
 
-        # return await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks)
+        logger.info(
+            "[David] Finish Running BGT for model endpoint creation",
+            project=project,
+            function=function_name,
+        )
 
     @staticmethod
     async def _create_model_endpoint_limited(
         semaphore: Semaphore,
-        model_endpoint,
-        creation_strategy,
-        model_path,
+        model_endpoints_instructions: list[
+            tuple[
+                mlrun.common.schemas.ModelEndpoint,
+                mm_constants.ModelEndpointCreationStrategy,
+                str,
+            ]
+        ],
+        project: str,
     ):
         async with semaphore:
             result = await framework.db.session.run_async_function_with_new_db_session(
-                func=services.api.crud.ModelEndpoints().create_model_endpoint,
-                model_endpoint=model_endpoint,
-                creation_strategy=creation_strategy,
-                model_path=model_path,
+                func=services.api.crud.ModelEndpoints().create_model_endpoints,
+                model_endpoints_instructions=model_endpoints_instructions,
+                project=project,
             )
             return result
 

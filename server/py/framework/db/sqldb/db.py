@@ -5167,21 +5167,21 @@ class SQLDB(DBInterface):
     def _find_model_endpoints(
         self,
         session: Session,
-        project: str,
-        name: str,
-        function_name: str,
-        function_tag: str,
-        model_name: str,
-        model_tag: str,
-        top_level: bool,
-        labels: list[str],
-        start: datetime,
-        end: datetime,
-        uids: list[str],
-        latest_only: bool,
-        offset: int,
-        limit: int,
-        order_by: str,
+        project: Optional[str] = None,
+        name: Optional[str] = None,
+        function_name: Optional[str] = None,
+        function_tag: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_tag: Optional[str] = None,
+        top_level: Optional[bool] = None,
+        labels: Optional[list[str]] = None,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+        uids: Optional[list[str]] = None,
+        latest_only: Optional[bool] = None,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        order_by: Optional[str] = None,
     ) -> sqlalchemy.orm.query.Query:
         """
         Query model_endpoints from the DB by the given filters.
@@ -7111,11 +7111,56 @@ class SQLDB(DBInterface):
             )
         return time_window_tracker_record
 
+    def store_model_endpoints(
+        self,
+        session,
+        model_endpoints: list[mlrun.common.schemas.ModelEndpoint],
+        project: str,
+    ) -> None:
+        meps = []
+        for model_endpoint in model_endpoints:
+            meps.append(self._create_mep_record_to_store(model_endpoint))
+
+        self._upsert(session, meps)
+        self.tag_objects_v2(
+            session,
+            meps,
+            project,
+            mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
+            obj_name_attribute=["name", "function_name", "function_tag"],
+        )
+
     def store_model_endpoint(
         self,
         session,
         model_endpoint: mlrun.common.schemas.ModelEndpoint,
     ) -> str:
+        mep = self._create_mep_record_to_store(model_endpoint)
+        logger.debug(
+            "Storing Model Endpoint Before upsert",
+            metadata=model_endpoint.metadata,
+        )
+        self._upsert(session, [mep])
+        logger.debug(
+            "Storing Model Endpoint After upsert",
+            metadata=model_endpoint.metadata,
+        )
+        self.tag_objects_v2(
+            session,
+            [mep],
+            model_endpoint.metadata.project,
+            mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
+            obj_name_attribute=["name", "function_name", "function_tag"],
+        )
+        logger.debug(
+            "Storing Model Endpoint Enddd",
+            metadata=model_endpoint.metadata,
+        )
+        return mep.uid
+
+    def _create_mep_record_to_store(
+        self, model_endpoint: mlrun.common.schemas.ModelEndpoint
+    ) -> ModelEndpoint:
         if not model_endpoint.metadata.name or not model_endpoint.metadata.project:
             raise mlrun.errors.MLRunInvalidArgumentError(
                 "Model endpoint name and project must be provided"
@@ -7144,36 +7189,8 @@ class SQLDB(DBInterface):
 
         update_labels(mep, model_endpoint.metadata.labels)
         mep.struct = model_endpoint.flat_dict()
-        logger.debug(
-            "Storing Model Endpoint Before upsert",
-            metadata=model_endpoint.metadata,
-        )
-        self._upsert(session, [mep])
-        logger.debug(
-            "Storing Model Endpoint After upsert",
-            metadata=model_endpoint.metadata,
-        )
-        self.tag_objects_v2(
-            session,
-            [mep],
-            model_endpoint.metadata.project,
-            mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
-            obj_name_attribute=["name", "function_name", "function_tag"],
-        )
-        logger.debug(
-            "Storing Model Endpoint Enddd",
-            metadata=model_endpoint.metadata,
-        )
-        # mep_record = self._get_model_endpoint(
-        #     session,
-        #     model_endpoint.metadata.project,
-        #     model_endpoint.metadata.name,
-        #     function_name=model_endpoint.spec.function_name,
-        #     function_tag=model_endpoint.spec.function_tag
-        #     or mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
-        # )
-        # return self._transform_model_endpoint_model_to_schema(mep_record)
-        return mep.uid
+
+        return mep
 
     def get_model_endpoint(
         self,
@@ -7193,6 +7210,26 @@ class SQLDB(DBInterface):
             )
         return self._transform_model_endpoint_model_to_schema(mep_record)
 
+    def update_model_endpoints(
+        self,
+        session,
+        project: str,
+        attributes: dict[str, dict[str, Any]],
+    ) -> None:
+        model_endpoints_record: list[ModelEndpoint] = []
+        uids = list(attributes.keys())
+        updated = datetime.now(timezone.utc)
+        for mep_record in self._find_model_endpoints(
+            session=session,
+            uids=uids,
+        ):
+            model_endpoints_record.append(
+                self._update_mep_record(
+                    mep_record, attributes.get(mep_record.uid, {}), updated
+                )
+            )
+        self._upsert(session, [model_endpoints_record])
+
     def update_model_endpoint(
         self,
         session,
@@ -7206,26 +7243,32 @@ class SQLDB(DBInterface):
         mep_record = self._get_model_endpoint(
             session, project, name, function_name, function_tag, uid
         )
-        updated = datetime.now(timezone.utc)
-        attributes, schema_attr, labels = self._split_mep_update_attr(attributes)
         if mep_record:
-            struct = mep_record.struct
-            for key, val in attributes.items():
-                update_in(struct, key, val)
-            for key, val in schema_attr.items():
-                setattr(mep_record, key, val)
-                update_in(struct, key, val)
-            if labels is not None and isinstance(labels, dict):
-                update_labels(mep_record, labels)
-                update_in(struct, "labels", labels)
-            mep_record.struct = struct
-            mep_record.updated = updated
+            updated = datetime.now(timezone.utc)
+            mep_record = self._update_mep_record(mep_record, attributes, updated)
             self._upsert(session, [mep_record])
             return mep_record.uid
         else:
             raise mlrun.errors.MLRunNotFoundError(
                 f"Model Endpoint not found in project {project} with name {name} under function {function_name}"
             )
+
+    def _update_mep_record(
+        self, mep_record: ModelEndpoint, attributes: dict, update: datetime
+    ) -> ModelEndpoint:
+        attributes, schema_attr, labels = self._split_mep_update_attr(attributes)
+        struct = mep_record.struct
+        for key, val in attributes.items():
+            update_in(struct, key, val)
+        for key, val in schema_attr.items():
+            setattr(mep_record, key, val)
+            update_in(struct, key, val)
+        if labels is not None and isinstance(labels, dict):
+            update_labels(mep_record, labels)
+            update_in(struct, "labels", labels)
+        mep_record.struct = struct
+        mep_record.updated = updated
+        return mep_record
 
     def _split_mep_update_attr(self, attributes: dict):
         if "labels" in attributes:

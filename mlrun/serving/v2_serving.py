@@ -139,6 +139,8 @@ class V2ModelServer(StepToDict):
                 self.context.logger.info(f"started async model loading for {self.name}")
             else:
                 self._load_and_update_state()
+        if not self.context.is_mock and not self.model_spec:
+            self.get_model()
 
     def _lazy_init(self):
         server: mlrun.serving.GraphServer = getattr(
@@ -147,18 +149,45 @@ class V2ModelServer(StepToDict):
         if not server:
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
-        if not self.context.is_mock and not self.model_spec:
-            self.get_model()
+
         if not self.context.is_mock or self.context.monitoring_mock:
             try:
-                self.model_endpoint_uid = mlrun.get_run_db().get_model_endpoint(
-                    project=server.project,
-                    name=self.name,
-                    function_name=server.function_name,
-                    function_tag=server.function_tag or "latest",
-                ).metadata.uid
+                self.model_endpoint_uid = (
+                    mlrun.get_run_db()
+                    .get_model_endpoint(
+                        project=server.project,
+                        name=self.name,
+                        function_name=server.function_name,
+                        function_tag=server.function_tag or "latest",
+                        tsdb_metrics=False,
+                    )
+                    .metadata.uid
+                )
                 self.model_endpoint_uid = self.model_endpoint.metadata.uid
             except mlrun.errors.MLRunNotFoundError:
+                if server.model_endpoint_creation_task_name:
+                    background_task = mlrun.get_run_db().get_project_background_task(
+                        server.project, server.model_endpoint_creation_task_name
+                    )
+                    logger.info(
+                        "Checking model endpoint creation task status",
+                        task_name=server.model_endpoint_creation_task_name,
+                    )
+                    if (
+                        background_task.status.state
+                        in mlrun.common.schemas.BackgroundTaskState.terminal_states()
+                    ):
+                        logger.info(
+                            f"Model endpoint creation task completed with state {background_task.status.state}"
+                        )
+                    else:  # in progress
+                        self.initialized = False
+                        return
+                else:
+                    logger.info(
+                        "Model endpoint creation task name not provided",
+                    )
+
                 logger.info(
                     "Model Endpoint not found for this step we will not monitor this model",
                     function_name=server.function_name,

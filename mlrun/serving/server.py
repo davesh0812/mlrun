@@ -350,36 +350,6 @@ def v2_serving_init(context, namespace=None):
     kwargs = {}
     if hasattr(context, "is_mock"):
         kwargs["is_mock"] = context.is_mock
-    if server.model_endpoint_creation_task_name:
-        background_task = (
-            mlrun.get_run_db()._wait_for_background_task_to_reach_terminal_state(
-                server.model_endpoint_creation_task_name, server.project
-            )
-        )
-        context.logger.info_with(
-            "Checking model endpoint creation task status",
-            task_name=server.model_endpoint_creation_task_name,
-        )
-        if (
-            background_task.status.state
-            == mlrun.common.schemas.BackgroundTaskState.failed
-        ):
-            raise mlrun.errors.MLRunRuntimeError(
-                f"Failed to create model endpoint. Reason: {background_task.status.error}"
-            )
-        elif (
-            background_task.status.state
-            != mlrun.common.schemas.BackgroundTaskState.succeeded
-        ):
-            context.logger.info_with(
-                "Model endpoint creation task completed successfully",
-            )
-
-    else:
-        context.logger.info_with(
-            "Model endpoint creation task name not provided",
-        )
-
     server.init_states(
         context,
         namespace or get_caller_globals(),
