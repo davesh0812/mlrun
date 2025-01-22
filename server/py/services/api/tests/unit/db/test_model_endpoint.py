@@ -88,7 +88,7 @@ class TestModelEndpoint(TestDatabaseBase):
             status={"monitoring_mode": "enabled", "last_request": datetime.now()},
         )
         for i in range(2):
-            mep = self._db.store_model_endpoint(
+            uid = self._db.store_model_endpoint(
                 self._db_session,
                 model_endpoint,
             )
@@ -101,13 +101,13 @@ class TestModelEndpoint(TestDatabaseBase):
             )
             assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
             assert model_endpoint_from_db.metadata.project == "project-1"
-            assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
+            assert model_endpoint_from_db.metadata.uid == uid
             assert (
                 model_endpoint_from_db.spec.function_uri
                 == f"project-1/function-1@{function_hash_key}"
             )
             assert model_endpoint_from_db.spec.model_name == "model-1"
-            uids.append(mep.metadata.uid)
+            uids.append(uid)
 
         model_endpoint_from_db = self._db.get_model_endpoint(
             self._db_session,
@@ -177,11 +177,11 @@ class TestModelEndpoint(TestDatabaseBase):
                 "label2": f"value_{i+1}",
                 "label": "value",
             }
-            mep = self._db.store_model_endpoint(
+            uid = self._db.store_model_endpoint(
                 self._db_session,
                 model_endpoint,
             )
-            uids.append(mep.metadata.uid)
+            uids.append(uid)
 
         list_mep = self._db.list_model_endpoints(
             self._db_session,
@@ -236,9 +236,17 @@ class TestModelEndpoint(TestDatabaseBase):
 
         model_endpoint.metadata.endpoint_type = EndpointType.LEAF_EP
         model_endpoint.spec.function_tag = "v1"
-        last_stored_mep = self._db.store_model_endpoint(
+        last_stored_mep_uid = self._db.store_model_endpoint(
             self._db_session,
             model_endpoint,
+        )
+        last_stored_mep = self._db.get_model_endpoint(
+            self._db_session,
+            uid=last_stored_mep_uid,
+            project="project-1",
+            function_name="function-1",
+            function_tag="v1",
+            name="model-endpoint-1",
         )
 
         list_mep = self._db.list_model_endpoints(
@@ -429,11 +437,11 @@ class TestModelEndpoint(TestDatabaseBase):
         )
         uids = []
         for i in range(2):
-            mep = self._db.store_model_endpoint(
+            uid = self._db.store_model_endpoint(
                 self._db_session,
                 model_endpoint,
             )
-            uids.append(mep.metadata.uid)
+            uids.append(uid)
 
         self._db.update_model_endpoint(
             self._db_session,
@@ -548,7 +556,7 @@ class TestModelEndpoint(TestDatabaseBase):
             },
             status={"monitoring_mode": "enabled", "last_request": datetime.now()},
         )
-        mep = self._db.store_model_endpoint(
+        uid = self._db.store_model_endpoint(
             self._db_session,
             model_endpoint,
         )
@@ -561,7 +569,7 @@ class TestModelEndpoint(TestDatabaseBase):
         )
         assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
         assert model_endpoint_from_db.metadata.project == "project-1"
-        assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
+        assert model_endpoint_from_db.metadata.uid == uid
         assert (
             model_endpoint_from_db.spec.function_uri
             == f"project-1/function-1@{function_hash_key}"
@@ -581,7 +589,7 @@ class TestModelEndpoint(TestDatabaseBase):
             },
             status={"monitoring_mode": "enabled", "last_request": datetime.now()},
         )
-        mep = self._db.store_model_endpoint(
+        uid = self._db.store_model_endpoint(
             self._db_session,
             model_endpoint,
         )
@@ -589,11 +597,11 @@ class TestModelEndpoint(TestDatabaseBase):
             self._db_session,
             name=model_endpoint.metadata.name,
             project=model_endpoint.metadata.project,
-            uid=mep.metadata.uid,
+            uid=uid,
         )
         assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
         assert model_endpoint_from_db.metadata.project == "project-1"
-        assert model_endpoint_from_db.metadata.uid == mep.metadata.uid
+        assert model_endpoint_from_db.metadata.uid == uid
         assert model_endpoint_from_db.spec.model_name == ""
         assert model_endpoint_from_db.spec.function_name == "some-non-mlrun-function"
         assert model_endpoint_from_db.metadata.labels == {
@@ -644,11 +652,11 @@ class TestModelEndpoint(TestDatabaseBase):
                 },
                 status={"monitoring_mode": "enabled", "last_request": datetime.now()},
             )
-            mep = self._db.store_model_endpoint(
+            uid = self._db.store_model_endpoint(
                 self._db_session,
                 model_endpoint,
             )
-            uids.append(mep.metadata.uid)
+            uids.append(uid)
 
         endpoints = self._db.list_model_endpoints(
             self._db_session, project="project-1"

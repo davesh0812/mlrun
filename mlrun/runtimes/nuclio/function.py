@@ -599,13 +599,15 @@ class RemoteRuntime(KubeResource):
         # when a function is deployed, we wait for it to be ready by default
         # this also means that the function object will be updated with the function status
         self._wait_for_function_deployment(db, verbose=verbose)
-        self._check_model_endpoint_task_state(
-            db=db,
-            background_task=mlrun.common.schemas.BackgroundTaskList(
-                **data.pop("background_tasks", {})
-            ).background_tasks[0],
-            wait_for_completion=False,
-        )
+        background_tasks = mlrun.common.schemas.BackgroundTaskList(
+            **data.pop("background_tasks", {"background_tasks": []})
+        ).background_tasks
+        if background_tasks:
+            self._check_model_endpoint_task_state(
+                db=db,
+                background_task=background_tasks[0],
+                wait_for_completion=False,
+            )
 
         return self._enrich_command_from_status()
 
