@@ -115,7 +115,6 @@ class V2ModelServer(StepToDict):
             self.model = model
             self.ready = True
         self.model_endpoint_uid = None
-        self.model_endpoint = None
         self.shard_by_endpoint = shard_by_endpoint
         self._model_logger = None
         self.initialized = False
@@ -139,8 +138,6 @@ class V2ModelServer(StepToDict):
                 self.context.logger.info(f"started async model loading for {self.name}")
             else:
                 self._load_and_update_state()
-        if not self.context.is_mock and not self.model_spec:
-            self.get_model()
 
     def _lazy_init(self):
         server: mlrun.serving.GraphServer = getattr(
@@ -149,7 +146,8 @@ class V2ModelServer(StepToDict):
         if not server:
             logger.warn("GraphServer not initialized for VotingEnsemble instance")
             return
-
+        if not self.context.is_mock and not self.model_spec:
+            self.get_model()
         if not self.context.is_mock or self.context.monitoring_mock:
             try:
                 self.model_endpoint_uid = (
@@ -163,7 +161,6 @@ class V2ModelServer(StepToDict):
                     )
                     .metadata.uid
                 )
-                self.model_endpoint_uid = self.model_endpoint.metadata.uid
             except mlrun.errors.MLRunNotFoundError:
                 if server.model_endpoint_creation_task_name:
                     background_task = mlrun.get_run_db().get_project_background_task(

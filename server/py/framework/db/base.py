@@ -1242,7 +1242,7 @@ class DBInterface(ABC):
         function_name: Optional[str] = None,
         function_tag: typing.Optional[str] = None,
         uid: typing.Optional[str] = None,
-    ) -> str:
+    ) -> mlrun.common.schemas.ModelEndpoint:
         """
         Get a model endpoint by project, name and uid.
         If uid is not provided, the latest model endpoint with the provided name and project will be returned.
