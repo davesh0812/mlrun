@@ -149,6 +149,28 @@ class V2ModelServer(StepToDict):
         if not self.context.is_mock and not self.model_spec:
             self.get_model()
         if not self.context.is_mock or self.context.monitoring_mock:
+            if server.model_endpoint_creation_task_name:
+                background_task = mlrun.get_run_db().get_project_background_task(
+                    server.project, server.model_endpoint_creation_task_name
+                )
+                logger.info(
+                    "Checking model endpoint creation task status",
+                    task_name=server.model_endpoint_creation_task_name,
+                )
+                if (
+                    background_task.status.state
+                    in mlrun.common.schemas.BackgroundTaskState.terminal_states()
+                ):
+                    logger.info(
+                        f"Model endpoint creation task completed with state {background_task.status.state}"
+                    )
+                else:  # in progress
+                    self.initialized = False
+                    return
+            else:
+                logger.info(
+                    "Model endpoint creation task name not provided",
+                )
             try:
                 self.model_endpoint_uid = (
                     mlrun.get_run_db()
@@ -162,29 +184,6 @@ class V2ModelServer(StepToDict):
                     .metadata.uid
                 )
             except mlrun.errors.MLRunNotFoundError:
-                if server.model_endpoint_creation_task_name:
-                    background_task = mlrun.get_run_db().get_project_background_task(
-                        server.project, server.model_endpoint_creation_task_name
-                    )
-                    logger.info(
-                        "Checking model endpoint creation task status",
-                        task_name=server.model_endpoint_creation_task_name,
-                    )
-                    if (
-                        background_task.status.state
-                        in mlrun.common.schemas.BackgroundTaskState.terminal_states()
-                    ):
-                        logger.info(
-                            f"Model endpoint creation task completed with state {background_task.status.state}"
-                        )
-                    else:  # in progress
-                        self.initialized = False
-                        return
-                else:
-                    logger.info(
-                        "Model endpoint creation task name not provided",
-                    )
-
                 logger.info(
                     "Model Endpoint not found for this step we will not monitor this model",
                     function_name=server.function_name,

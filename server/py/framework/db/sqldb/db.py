@@ -7141,20 +7141,12 @@ class SQLDB(DBInterface):
             metadata=model_endpoint.metadata,
         )
         self._upsert(session, [mep])
-        logger.debug(
-            "Storing Model Endpoint After upsert",
-            metadata=model_endpoint.metadata,
-        )
         self.tag_objects_v2(
             session,
             [mep],
             model_endpoint.metadata.project,
             mlrun.common.constants.RESERVED_TAG_NAME_LATEST,
             obj_name_attribute=["name", "function_name", "function_tag"],
-        )
-        logger.debug(
-            "Storing Model Endpoint Enddd",
-            metadata=model_endpoint.metadata,
         )
         return mep.uid
 
@@ -7216,19 +7208,19 @@ class SQLDB(DBInterface):
         project: str,
         attributes: dict[str, dict[str, Any]],
     ) -> None:
-        model_endpoints_record: list[ModelEndpoint] = []
+        model_endpoint_records: list[ModelEndpoint] = []
         uids = list(attributes.keys())
         updated = datetime.now(timezone.utc)
         for mep_record in self._find_model_endpoints(
             session=session,
             uids=uids,
         ):
-            model_endpoints_record.append(
+            model_endpoint_records.append(
                 self._update_mep_record(
                     mep_record, attributes.get(mep_record.uid, {}), updated
                 )
             )
-        self._upsert(session, [model_endpoints_record])
+        self._upsert(session, model_endpoint_records)
 
     def update_model_endpoint(
         self,
