@@ -604,7 +604,7 @@ class RemoteRuntime(KubeResource):
             background_task=mlrun.common.schemas.BackgroundTaskList(
                 **data.pop("background_tasks", {})
             ).background_tasks[0],
-            wait_for_completion=True,  # todo change to false
+            wait_for_completion=False,
         )
 
         return self._enrich_command_from_status()
