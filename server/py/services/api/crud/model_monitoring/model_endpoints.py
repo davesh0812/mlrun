@@ -306,7 +306,10 @@ class ModelEndpoints:
             # there is no model endpoint with the same name
             # create a new model endpoint using the same logic as archive
             return await self._archive_model_endpoint(
-                db_session=db_session, model_endpoint=model_endpoint, upsert=upsert
+                db_session=db_session,
+                model_endpoint=model_endpoint,
+                upsert=upsert,
+                model_obj=model_obj,
             )
 
         model_endpoint.metadata.uid = exist_model_endpoint.metadata.uid
