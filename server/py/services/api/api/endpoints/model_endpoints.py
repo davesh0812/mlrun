@@ -147,7 +147,7 @@ async def patch_model_endpoint(
     )
     attributes = {key: model_endpoint.get(key) for key in attributes_keys}
 
-    return services.api.crud.ModelEndpoints().patch_model_endpoint(
+    return await services.api.crud.ModelEndpoints().patch_model_endpoint(
         name=model_endpoint.metadata.name,
         project=project,
         function_name=model_endpoint.spec.function_name,
