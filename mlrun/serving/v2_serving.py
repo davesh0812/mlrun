@@ -139,7 +139,7 @@ class V2ModelServer(StepToDict):
             else:
                 self._load_and_update_state()
 
-    def _lazy_init(self):
+    def _lazy_init(self, event_id):
         server: mlrun.serving.GraphServer = getattr(
             self.context, "_server", None
         ) or getattr(self.context, "server", None)
@@ -153,7 +153,7 @@ class V2ModelServer(StepToDict):
                 background_task = mlrun.get_run_db().get_project_background_task(
                     server.project, server.model_endpoint_creation_task_name
                 )
-                logger.info(
+                logger.debug(
                     "Checking model endpoint creation task status",
                     task_name=server.model_endpoint_creation_task_name,
                 )
@@ -161,14 +161,20 @@ class V2ModelServer(StepToDict):
                     background_task.status.state
                     in mlrun.common.schemas.BackgroundTaskState.terminal_states()
                 ):
-                    logger.info(
+                    logger.debug(
                         f"Model endpoint creation task completed with state {background_task.status.state}"
                     )
                 else:  # in progress
+                    logger.debug(
+                        f"Model endpoint creation task is still in progress with the current state: "
+                        f"{background_task.status.state}. This event will not be monitored.",
+                        name=self.name,
+                        event_id=event_id,
+                    )
                     self.initialized = False
                     return
             else:
-                logger.info(
+                logger.debug(
                     "Model endpoint creation task name not provided",
                 )
             try:
@@ -274,7 +280,7 @@ class V2ModelServer(StepToDict):
     def do_event(self, event, *args, **kwargs):
         """main model event handler method"""
         if not self.initialized:
-            self._lazy_init()
+            self._lazy_init(event.id)
         start = now_date()
         original_body = event.body
         event_body = _extract_input_data(self._input_path, event.body)

@@ -547,6 +547,7 @@ class GraphContext:
         self.get_store_resource = None
         self.get_table = None
         self.is_mock = False
+        self.monitoring_mock = False
 
     @property
     def server(self):
