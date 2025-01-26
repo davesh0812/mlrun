@@ -544,10 +544,17 @@ class GraphContext:
         self.get_store_resource = None
         self.get_table = None
         self.is_mock = False
+        self._project_obj = None
 
     @property
     def server(self):
         return self._server
+
+    @property
+    def project_obj(self):
+        if not self._project_obj:
+            self._project_obj = mlrun.load_project(url=self.project, save=False)
+        return self._project_obj
 
     @property
     def project(self) -> str:
