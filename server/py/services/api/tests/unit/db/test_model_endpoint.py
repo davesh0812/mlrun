@@ -153,6 +153,80 @@ class TestModelEndpoint(TestDatabaseBase):
                     uid=uid,
                 )
 
+    def test_batch_insert_and_update(self) -> None:
+        model_uids = []
+        # store artifact
+        for i in range(2):
+            model_uids.append(self._store_artifact(f"model-{i}"))
+        # store function
+        function_hash_key = self._store_function()
+        model_endpoint_1 = mlrun.common.schemas.ModelEndpoint(
+            metadata={"name": "model-endpoint-1", "project": "project-1", "uid": 111},
+            spec={
+                "function_name": "function-1",
+                "function_uid": f"{unversioned_tagged_object_uid_prefix}latest",
+                "model_uid": model_uids[1],
+                "model_name": "model-1",
+            },
+            status={"monitoring_mode": "enabled", "last_request": datetime.now()},
+        )
+
+        model_endpoint_2 = mlrun.common.schemas.ModelEndpoint(
+            metadata={"name": "model-endpoint-2", "project": "project-1", "uid": 222},
+            spec={
+                "function_name": "function-1",
+                "function_uid": f"{unversioned_tagged_object_uid_prefix}latest",
+                "model_uid": model_uids[1],
+                "model_name": "model-1",
+            },
+            status={"monitoring_mode": "enabled", "last_request": datetime.now()},
+        )
+
+        self._db.store_model_endpoints(
+            self._db_session,
+            [model_endpoint_1, model_endpoint_2],
+            "project-1",
+        )
+
+        list_mep = self._db.list_model_endpoints(
+            self._db_session,
+            project="project-1",
+        )
+        assert len(list_mep.endpoints) == 2
+
+        self._db.update_model_endpoints(
+            self._db_session,
+            "project-1",
+            {
+                "111": {"monitoring_mode": ModelMonitoringMode.disabled},
+                "222": {"model_class": "new_class"},
+            },
+        )
+
+        model_endpoint_from_db = self._db.get_model_endpoint(
+            self._db_session,
+            name=model_endpoint_1.metadata.name,
+            project=model_endpoint_1.metadata.project,
+            function_name="function-1",
+            function_tag="latest",
+        )
+        assert model_endpoint_from_db.metadata.name == "model-endpoint-1"
+        assert model_endpoint_from_db.metadata.project == "project-1"
+        assert model_endpoint_from_db.metadata.uid == "111"
+        # assert model_endpoint_from_db.status.monitoring_mode == "disabled"
+
+        model_endpoint_from_db = self._db.get_model_endpoint(
+            self._db_session,
+            name=model_endpoint_2.metadata.name,
+            project=model_endpoint_2.metadata.project,
+            function_name="function-1",
+            function_tag="latest",
+        )
+        assert model_endpoint_from_db.metadata.name == "model-endpoint-2"
+        assert model_endpoint_from_db.metadata.project == "project-1"
+        assert model_endpoint_from_db.metadata.uid == "222"
+        assert model_endpoint_from_db.spec.model_class == "new_class"
+
     def test_list_filters(self) -> None:
         uids = []
         model_uids = []

@@ -4975,6 +4975,13 @@ class SQLDB(DBInterface):
             session.add(object_)
         self._commit(session, objects, ignore, silent)
 
+    def _upsert_batch(self, session, objects, ignore=False, silent=False):
+        if not objects:
+            return
+
+        session.add_all(objects)
+        self._commit(session, objects, ignore, silent)
+
     def _upsert_object_and_flush_to_get_field(self, session, object_, field):
         # Add the object to the session
         session.add(object_)
@@ -5167,7 +5174,7 @@ class SQLDB(DBInterface):
     def _find_model_endpoints(
         self,
         session: Session,
-        project: Optional[str] = None,
+        project: str,
         name: Optional[str] = None,
         function_name: Optional[str] = None,
         function_tag: Optional[str] = None,
@@ -7121,7 +7128,7 @@ class SQLDB(DBInterface):
         for model_endpoint in model_endpoints:
             meps.append(self._create_mep_record_to_store(model_endpoint))
 
-        self._upsert(session, meps)
+        self._upsert_batch(session, meps)
         self.tag_objects_v2(
             session,
             meps,
@@ -7214,13 +7221,14 @@ class SQLDB(DBInterface):
         for mep_record in self._find_model_endpoints(
             session=session,
             uids=uids,
+            project=project,
         ):
             model_endpoint_records.append(
                 self._update_mep_record(
                     mep_record, attributes.get(mep_record.uid, {}), updated
                 )
             )
-        self._upsert(session, model_endpoint_records)
+        self._upsert_batch(session, model_endpoint_records)
 
     def update_model_endpoint(
         self,
