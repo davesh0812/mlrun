@@ -138,7 +138,9 @@ class _BatchWindow:
 
 
 class _BatchWindowGenerator(AbstractContextManager):
-    def __init__(self, project: str, endpoint_id: str, window_length: int) -> None:
+    def __init__(
+        self, project: str, endpoint_id: str, window_length: Optional[int] = None
+    ) -> None:
         """
         Initialize a batch window generator object that generates batch window objects
         for the monitoring functions.
@@ -164,6 +166,12 @@ class _BatchWindowGenerator(AbstractContextManager):
         self._schedules_file.__exit__(
             exc_type=exc_type, exc_value=exc_value, traceback=traceback
         )
+
+    def get_application_list(self) -> set[str]:
+        return self._schedules_file.get_application_list()
+
+    def get_min_last_analyzed(self) -> Optional[int]:
+        return self._schedules_file.get_min_timestamp()
 
     @classmethod
     def _get_last_updated_time(
@@ -255,8 +263,10 @@ class MonitoringApplicationController:
         return access_key
 
     @staticmethod
-    def _should_monitor_endpoint(endpoint: mlrun.common.schemas.ModelEndpoint) -> bool:
-        return (
+    def _should_monitor_endpoint(
+        endpoint: mlrun.common.schemas.ModelEndpoint, application_names: set
+    ) -> bool:
+        if (
             # Is the model endpoint monitored?
             endpoint.status.monitoring_mode == mm_constants.ModelMonitoringMode.enabled
             # Was the model endpoint called? I.e., are the first and last requests nonempty?
@@ -265,7 +275,36 @@ class MonitoringApplicationController:
             # Is the model endpoint not a router endpoint? Router endpoint has no feature stats
             and endpoint.metadata.endpoint_type.value
             != mm_constants.EndpointType.ROUTER.value
-        )
+        ):
+            with _BatchWindowGenerator(
+                project=endpoint.metadata.project,
+                endpoint_id=endpoint.metadata.uid,
+            ) as batch_window_generator:
+                if application_names != batch_window_generator.get_application_list():
+                    return True
+                elif batch_window_generator.get_min_last_analyzed() < int(
+                    endpoint.status.last_request.timestamp()
+                    - mlrun.mlconf.model_endpoint_monitoring.parquet_batching_timeout_secs
+                ):
+                    return True
+                else:
+                    logger.info(
+                        "All the possible intervals were already analyzed, didn't push regular event",
+                        endpoint_id=endpoint.metadata.uid,
+                        last_analyzed=batch_window_generator.get_min_last_analyzed(),
+                        last_request=endpoint.status.last_request,
+                    )
+        else:
+            logger.info(
+                "Should not monitor model endpoint, didn't push regular event",
+                endpoint_id=endpoint.metadata.uid,
+                endpoint_name=endpoint.metadata.name,
+                timestamp=endpoint.status.last_request,
+                first_request=endpoint.status.first_request,
+                endpoint_type=endpoint.metadata.endpoint_type,
+                feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
+            )
+        return False
 
     def run(self, event: nuclio_sdk.Event) -> None:
         """
@@ -370,7 +409,7 @@ class MonitoringApplicationController:
                 current_time = mlrun.utils.datetime_now()
                 if (
                     current_time.timestamp()
-                    - batch_window_generator.batch_window._get_last_analyzed()
+                    - batch_window_generator.get_min_last_analyzed()
                     >= datetime.timedelta(minutes=base_period).total_seconds()
                     and event[ControllerEvent.KIND] != ControllerEventKind.NOP_EVENT
                 ):
@@ -506,7 +545,7 @@ class MonitoringApplicationController:
             ),
         }
         for endpoint in endpoints:
-            if self._should_monitor_endpoint(endpoint):
+            if self._should_monitor_endpoint(endpoint, set(applications_names)):
                 logger.info(
                     "Regular event is being pushed to controller stream for model endpoint",
                     endpoint_id=endpoint.metadata.uid,
@@ -536,16 +575,6 @@ class MonitoringApplicationController:
                     endpoint_type=endpoint.metadata.endpoint_type,
                     feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
                     endpoint_policy=policy,
-                )
-            else:
-                logger.info(
-                    "Should not monitor model endpoint, didn't push regular event",
-                    endpoint_id=endpoint.metadata.uid,
-                    endpoint_name=endpoint.metadata.name,
-                    timestamp=endpoint.status.last_request,
-                    first_request=endpoint.status.first_request,
-                    endpoint_type=endpoint.metadata.endpoint_type,
-                    feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
                 )
 
     @staticmethod
