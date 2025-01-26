@@ -502,7 +502,7 @@ class MonitoringApplicationController:
                 [data]
             )
 
-    def push_regular_event_to_controller_stream(self, event: nuclio_sdk.Event) -> None:
+    def push_regular_event_to_controller_stream(self) -> None:
         """
         pushes a regular event to the controller stream.
         :param event: the nuclio trigger event
@@ -564,38 +564,6 @@ class MonitoringApplicationController:
                     self.v3io_access_key,
                 )
         logger.info("Finishing monitoring controller chief")
-        # for endpoint in endpoints:
-        #     if self._should_monitor_endpoint(endpoint, set(applications_names)):
-        #         logger.info(
-        #             "Regular event is being pushed to controller stream for model endpoint",
-        #             endpoint_id=endpoint.metadata.uid,
-        #             endpoint_name=endpoint.metadata.name,
-        #             timestamp=endpoint.status.last_request.isoformat(
-        #                 sep=" ", timespec="microseconds"
-        #             ),
-        #             first_request=endpoint.status.first_request.isoformat(
-        #                 sep=" ", timespec="microseconds"
-        #             ),
-        #             endpoint_type=endpoint.metadata.endpoint_type,
-        #             feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
-        #             endpoint_policy=json.dumps(policy),
-        #         )
-        #         self.push_to_controller_stream(
-        #             kind=mm_constants.ControllerEventKind.REGULAR_EVENT,
-        #             project=self.project,
-        #             endpoint_id=endpoint.metadata.uid,
-        #             endpoint_name=endpoint.metadata.name,
-        #             stream_access_key=self.v3io_access_key,
-        #             timestamp=endpoint.status.last_request.isoformat(
-        #                 sep=" ", timespec="microseconds"
-        #             ),
-        #             first_request=endpoint.status.first_request.isoformat(
-        #                 sep=" ", timespec="microseconds"
-        #             ),
-        #             endpoint_type=endpoint.metadata.endpoint_type,
-        #             feature_set_uri=endpoint.spec.monitoring_feature_set_uri,
-        #             endpoint_policy=policy,
-        #         )
 
     @staticmethod
     def endpoint_to_regular_event(
@@ -723,9 +691,7 @@ def handler(context: nuclio_sdk.Context, event: nuclio_sdk.Event) -> None:
 
     if event.trigger.kind == "http":
         # Runs controller chief:
-        context.user_data.monitor_app_controller.push_regular_event_to_controller_stream(
-            event
-        )
+        context.user_data.monitor_app_controller.push_regular_event_to_controller_stream()
     else:
         # Runs controller worker:
         context.user_data.monitor_app_controller.run(event)
