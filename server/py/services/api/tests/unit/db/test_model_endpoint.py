@@ -159,7 +159,7 @@ class TestModelEndpoint(TestDatabaseBase):
         for i in range(2):
             model_uids.append(self._store_artifact(f"model-{i}"))
         # store function
-        function_hash_key = self._store_function()
+        self._store_function()
         model_endpoint_1 = mlrun.common.schemas.ModelEndpoint(
             metadata={"name": "model-endpoint-1", "project": "project-1", "uid": 111},
             spec={
