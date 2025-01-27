@@ -550,7 +550,6 @@ class GraphContext:
         self.monitoring_mock = False
         self._project_obj = None
 
-
     @property
     def server(self):
         return self._server
