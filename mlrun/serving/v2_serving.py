@@ -191,7 +191,7 @@ class V2ModelServer(StepToDict):
                 )
             except mlrun.errors.MLRunNotFoundError:
                 logger.info(
-                    "Model Endpoint not found for this step we will not monitor this model",
+                    "Model endpoint not found for this step; monitoring for this model will not be performed",
                     function_name=server.function_name,
                     name=self.name,
                 )

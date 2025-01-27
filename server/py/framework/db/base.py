@@ -1226,11 +1226,11 @@ class DBInterface(ABC):
         project: str,
     ) -> None:
         """
-        Store a model endpoint in the DB.
+        Store list of model endpoints in the DB.
 
         :param session:         The database session.
         :param model_endpoints: Model endpoints object to store.
-        :return:                The created model endpoint.
+        :param project:         The project name.
         """
         pass
 
@@ -1288,7 +1288,7 @@ class DBInterface(ABC):
         session,
         project: str,
         attributes: dict[str, dict[str, Any]],
-    ) -> str:
+    ) -> None:
         """
         Update a model endpoint by project, name and uid.
         If uid is not provided, the latest model endpoint with the provided name and project will be updated.
@@ -1298,7 +1298,6 @@ class DBInterface(ABC):
         :param project:         The project name.
         :param attributes:      Dictionary where the key is the model endpoint uids to update
                                 and the value are the attribute to update in.
-        :return:                The updated model endpoint uid.
         """
         pass
 

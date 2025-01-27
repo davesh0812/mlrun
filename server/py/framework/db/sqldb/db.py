@@ -7157,8 +7157,9 @@ class SQLDB(DBInterface):
         )
         return mep.uid
 
+    @staticmethod
     def _create_mep_record_to_store(
-        self, model_endpoint: mlrun.common.schemas.ModelEndpoint
+        model_endpoint: mlrun.common.schemas.ModelEndpoint,
     ) -> ModelEndpoint:
         if not model_endpoint.metadata.name or not model_endpoint.metadata.project:
             raise mlrun.errors.MLRunInvalidArgumentError(

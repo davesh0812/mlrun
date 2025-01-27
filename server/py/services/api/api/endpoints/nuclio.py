@@ -223,19 +223,7 @@ async def delete_api_gateway(
 @router.post(
     "/projects/{project}/nuclio/{name}/deploy",
     response_model=DeployResponse,
-    responses={
-        http.HTTPStatus.OK.value: {
-            "description": "Successful deployment",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "data": {"key": "value"},
-                        "background_tasks": {"tasks": []},
-                    }
-                }
-            },
-        }
-    },
+    status_code=http.HTTPStatus.OK.value,
 )
 async def deploy_function(
     project: str,

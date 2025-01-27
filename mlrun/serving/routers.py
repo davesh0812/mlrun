@@ -596,11 +596,6 @@ class VotingEnsemble(ParallelRun):
         self.vote_type = vote_type
         self.vote_flag = True if self.vote_type is not None else False
         self.weights = weights
-        self._model_logger = (
-            _ModelLogPusher(self, context)
-            if context and context.stream.enabled
-            else None
-        )
         self.version = kwargs.get("version", "v1")
         self.log_router = True
         self.prediction_col_name = prediction_col_name or "prediction"
@@ -663,7 +658,7 @@ class VotingEnsemble(ParallelRun):
                 )
             except mlrun.errors.MLRunNotFoundError:
                 logger.info(
-                    "Model Endpoint not found for this step we will not monitor this model",
+                    "Model endpoint not found for this step; monitoring for this model will not be performed",
                     function_name=server.function_name,
                     name=self.name,
                 )

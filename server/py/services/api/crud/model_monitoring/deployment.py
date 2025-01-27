@@ -1312,7 +1312,6 @@ class MonitoringDeployment:
         function: dict,
         function_name: str,
         project: str,
-        db_session: sqlalchemy.orm.Session,
     ):
         """
         Create model endpoints for the given function.
@@ -1361,17 +1360,17 @@ class MonitoringDeployment:
             ),
         )  # model endpoint, creation strategy, model path
         semaphore = Semaphore(50)  # Limit concurrent tasks
-        tasks = []
+        coroutines = []
         batchsize = 500
         for i in range(0, len(model_endpoints_instructions), batchsize):
             batch = model_endpoints_instructions[i : i + batchsize]
-            tasks.append(
+            coroutines.append(
                 MonitoringDeployment._create_model_endpoint_limited(
                     semaphore, batch, project
                 )
             )
 
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*coroutines)
         logger.info(
             "Finish Running BGT for model endpoint creation",
             project=project,
@@ -1602,7 +1601,6 @@ class MonitoringDeployment:
             function,
             function_name,
             project_name,
-            db_session,
         )
 
 
