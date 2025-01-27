@@ -31,6 +31,7 @@ from os import environ, makedirs, path
 from typing import Callable, Optional, Union, cast
 from urllib.parse import urlparse
 
+import deprecated
 import dotenv
 import git
 import git.exc
@@ -2406,7 +2407,6 @@ class MlrunProject(ModelObj):
         *,
         deploy_histogram_data_drift_app: bool = True,
         wait_for_deployment: bool = False,
-        rebuild_images: bool = False,
         fetch_credentials_from_sys_config: bool = False,
     ) -> None:
         """
@@ -2428,7 +2428,6 @@ class MlrunProject(ModelObj):
         :param wait_for_deployment:               If true, return only after the deployment is done on the backend.
                                                   Otherwise, deploy the model monitoring infrastructure on the
                                                   background, including the histogram data drift app if selected.
-        :param rebuild_images:                    If true, force rebuild of model monitoring infrastructure images.
         :param fetch_credentials_from_sys_config: If true, fetch the credentials from the system configuration.
         """
         if default_controller_image != "mlrun/mlrun":
@@ -2451,7 +2450,6 @@ class MlrunProject(ModelObj):
             image=image,
             base_period=base_period,
             deploy_histogram_data_drift_app=deploy_histogram_data_drift_app,
-            rebuild_images=rebuild_images,
             fetch_credentials_from_sys_config=fetch_credentials_from_sys_config,
         )
 
@@ -2839,11 +2837,30 @@ class MlrunProject(ModelObj):
 
         self.spec.set_function(name, function_object, func)
 
+    # TODO: Remove this in 1.10.0
+    @deprecated.deprecated(
+        version="1.8.0",
+        reason="'remove_function' is deprecated and will be removed in 1.10.0. "
+        "Please use `delete_function` instead.",
+        category=FutureWarning,
+    )
     def remove_function(self, name):
         """remove the specified function from the project
 
         :param name:    name of the function (under the project)
         """
+        self.spec.remove_function(name)
+
+    def delete_function(self, name, delete_from_db=False):
+        """deletes the specified function from the project
+
+        :param name: name of the function (under the project)
+        :param delete_from_db: default is False. If False, the function is removed
+                               only from the project's cache and spec.
+                               If True, the function is also removed from the database.
+        """
+        if delete_from_db:
+            mlrun.db.get_run_db().delete_function(name=name, project=self.metadata.name)
         self.spec.remove_function(name)
 
     def remove_model_monitoring_function(self, name: Union[str, list[str]]):
@@ -3762,8 +3779,8 @@ class MlrunProject(ModelObj):
                 "Please keep in mind that if you already had model monitoring functions "
                 "/ model monitoring infra / tracked model server "
                 "deployed on your project, you will need to redeploy them. "
-                "For redeploying the model monitoring infra, please use `enable_model_monitoring` API "
-                "and set `rebuild_images=True`"
+                "For redeploying the model monitoring infra, first disable it using "
+                "`project.disable_model_monitoring()` and then enable it using `project.enable_model_monitoring()`."
             )
 
     def list_model_endpoints(
