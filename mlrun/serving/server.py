@@ -553,7 +553,7 @@ class GraphContext:
     @property
     def project_obj(self):
         if not self._project_obj:
-            self._project_obj = mlrun.load_project(url=self.project, save=False)
+            self._project_obj = mlrun.get_run_db().get_project(name=self.project)
         return self._project_obj
 
     @property
