@@ -3920,7 +3920,7 @@ class HTTPRunDB(RunDBInterface):
             attributes_keys=attributes_keys,
             model_endpoint=model_endpoint,
         )
-        uid = self.api_call(
+        response = self.api_call(
             method=mlrun.common.types.HTTPMethod.PATCH,
             path=path,
             params={
@@ -3929,9 +3929,9 @@ class HTTPRunDB(RunDBInterface):
             body=model_endpoint.json(),
         )
         logger.info(
-            f"Updating MEP {uid} done",
-            attributes_keys=attributes_keys,
-            model_endpoint=model_endpoint,
+            "Updating model endpoint done",
+            model_endpoint_uid=response.json(),
+            status_code=response.status_code,
         )
 
     @staticmethod
