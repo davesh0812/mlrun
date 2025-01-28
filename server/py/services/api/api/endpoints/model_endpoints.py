@@ -56,7 +56,7 @@ async def create_model_endpoint(
     creation_strategy: mm_constants.ModelEndpointCreationStrategy,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
-) -> mlrun.common.schemas.ModelEndpoint:
+) -> schemas.ModelEndpoint:
     """
     Create a new model endpoint record in the DB.
     :param model_endpoint:  The model endpoint object.
