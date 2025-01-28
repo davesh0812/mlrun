@@ -56,7 +56,7 @@ async def create_model_endpoint(
     creation_strategy: mm_constants.ModelEndpointCreationStrategy,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
-) -> schemas.ModelEndpoint:
+) -> str:
     """
     Create a new model endpoint record in the DB.
     :param model_endpoint:  The model endpoint object.
@@ -94,18 +94,23 @@ async def create_model_endpoint(
     if not model_endpoint.metadata.project or not model_endpoint.metadata.name:
         raise MLRunInvalidArgumentError("Model endpoint must have project and name")
 
-    return await run_in_threadpool(
-        services.api.crud.ModelEndpoints().create_model_endpoint,
+    (
+        model_endpoint,
+        _,
+        _,
+        _,
+    ) = await services.api.crud.ModelEndpoints().create_model_endpoint(
         db_session=db_session,
         model_endpoint=model_endpoint,
         creation_strategy=creation_strategy,
         upsert=True,
     )
+    return model_endpoint
 
 
 @router.patch(
     "",
-    response_model=schemas.ModelEndpoint,
+    response_model=str,
 )
 async def patch_model_endpoint(
     project: ProjectAnnotation,
@@ -113,7 +118,7 @@ async def patch_model_endpoint(
     attributes_keys: list[str] = Query([], alias="attribute-key"),
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
-) -> schemas.ModelEndpoint:
+) -> str:
     """
     Patch the model endpoint record in the DB.
     :param project:         The name of the project.

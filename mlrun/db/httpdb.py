@@ -3896,7 +3896,7 @@ class HTTPRunDB(RunDBInterface):
         function_name: Optional[str] = None,
         function_tag: Optional[str] = None,
         endpoint_id: Optional[str] = None,
-    ) -> mlrun.common.schemas.ModelEndpoint:
+    ) -> None:
         """
         Updates a model endpoint with the given attributes.
 
@@ -3921,7 +3921,7 @@ class HTTPRunDB(RunDBInterface):
             attributes_keys=attributes_keys,
             model_endpoint=model_endpoint,
         )
-        response = self.api_call(
+        uid = self.api_call(
             method=mlrun.common.types.HTTPMethod.PATCH,
             path=path,
             params={
@@ -3929,8 +3929,12 @@ class HTTPRunDB(RunDBInterface):
             },
             body=model_endpoint.json(),
         )
-
-        return mlrun.common.schemas.ModelEndpoint(**response.json())
+        logger.info(
+            "Done patching model endpoint",
+            attributes_keys=attributes_keys,
+            model_endpoint=model_endpoint,
+            uid=uid,
+        )
 
     @staticmethod
     def _check_model_endpoint_representation(
