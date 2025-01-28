@@ -3929,10 +3929,9 @@ class HTTPRunDB(RunDBInterface):
             body=model_endpoint.json(),
         )
         logger.info(
-            "Done patching model endpoint",
+            f"Updating MEP {uid} done",
             attributes_keys=attributes_keys,
             model_endpoint=model_endpoint,
-            uid=uid,
         )
 
     @staticmethod
