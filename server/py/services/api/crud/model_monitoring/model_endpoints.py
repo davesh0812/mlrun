@@ -87,7 +87,8 @@ class ModelEndpoints:
         :param upsert:                 If True, will execute the creation/deletion/updating
                                        of the model endpoint in the DB.
 
-        :return:    The created `ModelEndpoint` object or `None` if the creation strategy is `SKIP`.
+        :return:    The created `ModelEndpoint` object, the method that was used to create it, the uids of the model
+                    endpoints that were deleted and the attributes that were updated.
         :raise:     MLRunInvalidArgumentError if the creation strategy is not valid
         """
         if model_endpoint.spec.function_name and not model_endpoint.spec.function_tag:

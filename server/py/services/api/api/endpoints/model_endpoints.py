@@ -56,7 +56,7 @@ async def create_model_endpoint(
     creation_strategy: mm_constants.ModelEndpointCreationStrategy,
     auth_info: schemas.AuthInfo = Depends(framework.api.deps.authenticate_request),
     db_session: Session = Depends(framework.api.deps.get_db_session),
-) -> str:
+) -> mlrun.common.schemas.ModelEndpoint:
     """
     Create a new model endpoint record in the DB.
     :param model_endpoint:  The model endpoint object.
@@ -127,7 +127,7 @@ async def patch_model_endpoint(
     :param auth_info:       The auth info of the request.
     :param db_session:      A session that manages the current dialog with the database.
 
-    :return:                The patched model endpoint object.
+    :return:                The patched model endpoint uid.
     """
 
     logger.info(

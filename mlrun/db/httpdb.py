@@ -3906,7 +3906,6 @@ class HTTPRunDB(RunDBInterface):
         :param function_name:              The name of the function
         :param function_tag:               The tag of the function
         :param endpoint_id:                The id of the endpoint
-        :return:                          The updated `ModelEndpoint` object.
         """
         attributes_keys = list(attributes.keys())
         attributes["name"] = name
