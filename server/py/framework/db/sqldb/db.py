@@ -90,6 +90,7 @@ from framework.db.sqldb.helpers import (
     generate_query_predicate_for_name,
     generate_time_range_query,
     label_set,
+    run_end_time,
     run_labels,
     run_start_time,
     run_state,
@@ -296,6 +297,10 @@ class SQLDB(DBInterface):
         start_time = run_start_time(struct)
         if start_time:
             run.start_time = start_time
+
+        end_time = run_end_time(struct)
+        if end_time:
+            run.end_time = end_time
 
         # Update the labels only if the run updates contains labels
         if run_labels(updates):
@@ -5825,8 +5830,7 @@ class SQLDB(DBInterface):
             version=version,
         )
 
-        now = datetime.now(timezone.utc)
-        data_version_record = DataVersion(version=version, created=now)
+        data_version_record = DataVersion(version=version)
         self._upsert(session, [data_version_record])
 
     def store_alert_template(
@@ -7035,7 +7039,6 @@ class SQLDB(DBInterface):
                 current_page=current_page,
                 page_size=page_size,
                 kwargs=kwargs,
-                last_accessed=datetime.now(timezone.utc),
             )
 
         self._upsert(session, [param_record])
