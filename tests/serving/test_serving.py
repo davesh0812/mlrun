@@ -850,5 +850,5 @@ def test_serialize():
     fn.set_topology("router")
     fn.add_model("my", ".", class_name=ModelTestingClass(multiplier=100))
 
-    fn_str = py_eval(str(fn.to_dict()))
-    mlrun.utils.helpers.as_dict(fn_str)
+    eval_fn = py_eval(str(fn.to_dict()))  # simulate mlrun/__main__.py
+    mlrun.utils.helpers.as_dict(eval_fn)
