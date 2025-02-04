@@ -513,7 +513,9 @@ class ModelEndpoints:
                     project=model_endpoint.metadata.project,
                 )
                 model_endpoint.spec.feature_names = [
-                    feature.name for feature in features
+                    feature.name
+                    for feature in features
+                    if feature.name not in model_endpoint.spec.label_names
                 ]
 
         return model_endpoint, features
