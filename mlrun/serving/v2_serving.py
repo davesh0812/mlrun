@@ -184,7 +184,7 @@ class V2ModelServer(StepToDict):
                     tsdb_metrics=False,
                 )
                 self.model_endpoint_uid = model_endpoint.metadata.uid
-                self.output_schema = model_endpoint.spec.outputs
+                self.output_schema = model_endpoint.spec.label_names
             except mlrun.errors.MLRunNotFoundError:
                 logger.info(
                     "Model endpoint not found for this step; monitoring for this model will not be performed",
