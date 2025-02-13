@@ -5686,7 +5686,7 @@ class SQLDB(DBInterface):
                 generate_object_uri(
                     project=model_endpoint_record.project,
                     name=model_endpoint_record.function_name,
-                    hash_key=function_full_dict.get("metadata", {}).get("hash"),
+                    hash_key=function_full_dict.get("metadata", {}).get("uid"),
                 )
             )
         return model_endpoint_full_dict
