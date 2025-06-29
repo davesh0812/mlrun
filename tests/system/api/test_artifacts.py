@@ -120,3 +120,6 @@ class TestAPIArtifacts(TestMLRunSystem):
         model_ref = llm_0.model_artifact
         assert model_ref.key == model.key
         assert model_ref.spec.has_children
+
+        # with pytest.raises(Exception):
+        # self.project.delete_artifact(llm_0)

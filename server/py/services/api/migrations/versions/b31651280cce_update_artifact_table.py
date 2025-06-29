@@ -42,7 +42,6 @@ def upgrade():
         "artifacts_v2",
         ["parent_id"],
         ["id"],
-        ondelete="SET NULL",
     )
     # ### end Alembic commands ###
 

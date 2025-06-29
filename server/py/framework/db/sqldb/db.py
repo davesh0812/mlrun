@@ -47,7 +47,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.inspection import inspect as sqlalchemy_inspect
 from sqlalchemy.orm import Query, Session, aliased, load_only, selectinload
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.sql.compiler import IdentifierPreparer
+from sqlalchemy.sql.elements import BinaryExpression
 
 import mlrun
 import mlrun.common.constants as mlrun_constants
@@ -1452,6 +1452,12 @@ class SQLDB(DBInterface):
 
     def _delete_project_artifacts(self, session: Session, project: str):
         logger.debug("Removing project artifacts from db", project=project)
+        # self._delete_multi_objects(
+        #     session=session,
+        #     main_table=ArtifactV2,
+        #     project=project,
+        #     additional_filter=(ArtifactV2.parent != None),
+        # )
         self._delete_multi_objects(
             session=session,
             main_table=ArtifactV2,
@@ -3260,6 +3266,7 @@ class SQLDB(DBInterface):
         main_table_identifier_values: typing.Optional[
             typing.Union[str, list[str]]
         ] = None,
+        additional_filter: typing.Optional[BinaryExpression] = None,
     ) -> int:
         """
         Delete multiple objects from the DB, including related tables.
@@ -3299,6 +3306,9 @@ class SQLDB(DBInterface):
             if not main_table_identifier_values or not main_table_identifier:
                 return skip_deletion()
             where_clause = main_table_identifier.in_(main_table_identifier_values)
+
+        if additional_filter is not None:
+            where_clause = and_(where_clause, additional_filter)
 
         for cls in related_tables:
             logger.debug(
